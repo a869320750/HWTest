@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/ {
+	
+	//红外滤光片（IRCUT）由两根线控制，对这两根线施加3.5v~6v的电源，通过对IRCUT供电电源的正负极对调，且满足通电时间100ms±10%，能够实现IRCUT的切换。驱动通过两个gpio控制电机驱动器的电流输出方向，gpio命令为open（红线）、close（黑线）。电流由open流向close，为红外截止滤光片，白天工作状态；电流由close流向open，为白玻璃片，夜晚工作状态。其配置如下：
+	cam_ircut0: cam_ircut {
+		status = "okay";
+		compatible = "rockchip,ircut";
+		//ircut-open-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+		//ircut-close-gpios  = <&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>;
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+	};
+};
+
+//这里使用的是csi2_dcphy0
+&csi2_dcphy0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_in_ucam0: endpoint@1 {
+				reg = <1>;
+				//sensor端的port名
+				remote-endpoint = <&ov9734_out0>;
+				//mipi lane数，1lane为<1>,4lane为<1 2 3 4>，这里配置的是4lane，这个必须要配置否则会无法识别mipi类型
+				data-lanes = <1>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidcphy0_out: endpoint@0 {
+				reg = <0>;
+				//mipi0_csi2_input是对应的isp端的port名
+				remote-endpoint = <&mipi0_csi2_input>;
+			};
+		};
+	};
+};
+
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+    pinctrl-names = "default";
+	pinctrl-0 = <&i2c7m0_xfer>;	
+	
+
+	ov9734: ov9734@36 {
+		compatible = "ovti,ov9734";		//需要与驱动定义的字符串一致
+		reg = <0x36>;		//sensor的I2C设备地址，7位
+		status = "okay";
+		
+		clocks = <&cru CLK_MIPI_CAMARAOUT_M2>;//sensor clockin配置
+		clock-names = "xvclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipim0_camera2_clk>;
+		//电源配置
+		power-domains = <&power RK3588_PD_VI>;
+		
+		//power管脚配置
+		//pwdn-gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_HIGH>;	
+		//reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;		
+		//avdd-supply = <&vcc_mipidcphy0>;
+		//dovdd-supply = <&vcc_mipidcphy0_dovdd>;
+		
+		//模组编号，该编号不要重复
+		rockchip,camera-module-index = <1>;
+		//模组朝向，有前摄“front”、后摄“back”
+		rockchip,camera-module-facing = "back";
+		//模组名称
+		rockchip,camera-module-name = "Sigma9734";
+		//IR CUT设备
+		rockchip,camera-module-lens-name = "ov9734";
+
+		//rockchip,camera-module-index-oh01a10 = <2>;
+		rockchip,camera-module-facing-oh01a10 = "back";
+		rockchip,camera-module-name-oh01a10 = "Nkjoh01a10";
+		rockchip,camera-module-lens-name-oh01a10 = "oh01a10";
+		
+		//lens-focus = <&cam_ircut0>;
+		port {
+			ov9734_out0: endpoint {
+			//mipi dphy端的port名
+				remote-endpoint = <&mipi_in_ucam0>;
+				//mipi lane数，1lane为<1>,4lane为<1 2 3 4>，这里配置的是4lane，这个必须要配置否则会无法识别mipi类型
+				data-lanes = <1>;
+			};
+		};
+	};
+};
+
+&mipi_dcphy0 {
+	status = "okay";
+};
+
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@1 {
+				reg = <1>;
+				//csi2 dphy端的port名
+				remote-endpoint = <&csidcphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_output: endpoint@0 {
+				reg = <0>;
+				//vicap端的port名
+				remote-endpoint = <&cif_mipi_in0>;
+			};
+		};
+	};
+};
+//vicap的配置，这里用rkcif节点代表vicap
+&rkcif {
+	status = "okay";
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+
+	port {
+		cif_mipi_in0: endpoint {
+		//csi2 host端的port名
+			remote-endpoint = <&mipi0_csi2_output>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+
+	port {
+		mipi_lvds_sditf: endpoint {
+		//isp虚拟设备端port名
+			remote-endpoint = <&isp0_vir0>;
+		};
+	};
+};
+
+&rkcif_mmu {
+	status = "okay";
+};
+
+&rkisp0 {
+	status = "okay";
+};
+
+&isp0_mmu {
+	status = "okay";
+};
+
+&rkisp0_vir0 {
+	status = "okay";
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp0_vir0: endpoint@0 {
+			reg = <0>;
+			//vicap mipi sditf的端点名
+			remote-endpoint = <&mipi_lvds_sditf>;
+		};
+	};
+};

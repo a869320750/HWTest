@@ -45,13 +45,33 @@ def gen_regulator_block(gpio_name, level="high"):
 if __name__ == "__main__":
     # 示例配置
     gpio_cfgs = [
-        ("GPIO4_B5_D", "down", "high"),
-        ("GPIO4_B4_U", "up", "high"),
-        ("GPIO1_B2_D", "down", "high"),
+        # ("GPIO4_B5_D", "down", "high"),
+        # ("GPIO4_B4_U", "up", "high"),
+        # ("GPIO1_B2_D", "down", "high"),
         # ("GPIO1_A7_U", "up", "high"),
         # ("GPIO1_A6_D", "down", "high"),
-        ("GPIO2_C5_D", "down", "high"),
-        ("GPIO2_B1_U", "up", "low"),
+        # ("GPIO2_C5_D", "down", "high"),
+        # ("GPIO2_B1_U", "up", "low"),
+        # ("GPIO1_C6_D", "down", "low"),
+        # ("GPIO2_B5_U", "up", "low"),
+        # ("GPIO2_B4_U", "up", "low"),
+        # ("GPIO2_C5_D", "down", "high"),
+        # ("GPIO2_B2_U", "up", "high"),
+        # ("GPIO4_A3_D", "down", "high"),
+        # ("GPIO4_A4_D", "down", "high"),
+        # ("GPIO2_C5_D", "down", "high"),
+        # ("GPIO4_A4_D", "down", "high"),
+        ("GPIO3_D5_D", "down", "high"),
+        ("GPIO3_D2_D", "down", "high"),
+        ("GPIO1_B3_D", "down", "high"),
+        ("GPIO3_D3_D", "down", "high"),
+        ("GPIO3_C7_U", "up", "high"),
+        ("GPIO0_C6_U", "up", "high"),
+        ("GPIO0_C5_U", "up", "high"),
+        ("GPIO4_A1_D", "down", "high"),
+        ("GPIO0_C4_D", "down", "high"),
+        
+
     ]
 
     print("// GPIO编号对照表")
@@ -72,3 +92,20 @@ if __name__ == "__main__":
     for name, _, level in gpio_cfgs:
         print(gen_regulator_block(name, level))
     print("};")
+
+
+    # 配置表：每项为 (gpio编号, 方向, 初始值)
+    gpio_list = [
+        (129,  "out", 1),   # 比如 GPIO6，输出，高电平
+        (20,  "out", 1),  
+        (22,  "out", 1),  
+    ]
+
+    print("# 自动生成的GPIO配置命令")
+    for gpio, direction, value in gpio_list:
+        print(f"echo {gpio} > /sys/class/gpio/export")
+        print(f"echo {direction} > /sys/class/gpio/gpio{gpio}/direction")
+        if direction == "out" and value is not None:
+            # print(f"echo {value} > /sys/class/gpio/gpio{gpio}/value")
+            print(f"cat /sys/class/gpio/gpio{gpio}/value")
+    print("# 可将以上命令复制到开发板执行")

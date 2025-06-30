@@ -1,0 +1,91 @@
+From 542f4585548a46f689a3289e6222ba03bcb4db84 Mon Sep 17 00:00:00 2001
+From: zd <jinyingjie-dkkj-sh@dkkj.com>
+Date: Wed, 18 Jun 2025 17:09:38 +0800
+Subject: [PATCH 2/2] dts tree update
+
+Signed-off-by: zd <jinyingjie-dkkj-sh@dkkj.com>
+---
+ .../boot/dts/rockchip/rk3588-evb7-v11.dtsi    | 59 ++++++++++++++++++-
+ 1 file changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index a5ab486668d9..686d00c1998e 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -25,6 +25,19 @@ cma {
+ 		};
+ 	};
+ 
++	gpio4_b5_d_out: gpio4-b5-d-out {
++        rockchip,pins = <4 13 RK_FUNC_GPIO &pcfg_pull_none>;
++    };
++    gpio4_b4_u_out: gpio4-b4-u-out {
++        rockchip,pins = <4 12 RK_FUNC_GPIO &pcfg_pull_none>;
++    };
++    gpio1_b2_d_out: gpio1-b2-d-out {
++        rockchip,pins = <1 10 RK_FUNC_GPIO &pcfg_pull_none>;
++    };
++    gpio2_c5_d_out: gpio2-c5-d-out {
++        rockchip,pins = <2 21 RK_FUNC_GPIO &pcfg_pull_none>;
++    };
++
+ 	es8388_sound: es8388-sound {
+ 		status = "okay";
+ 		compatible = "rockchip,multicodecs-card";
+@@ -273,8 +286,52 @@ wireless_wlan: wireless-wlan {
+ 		WIFI,poweren_gpio = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+ 		status = "okay";
+ 	};
+-};
++	
++	gpio4_b5_d_reg: gpio4-b5-d-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "gpio4_b5_d";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio4 13 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&gpio4_b5_d_out>;
++	};
++
++	gpio4_b4_u_reg: gpio4-b4-u-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "gpio4_b4_u";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio4 12 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&gpio4_b4_u_out>;
++	};
+ 
++	gpio1_b2_d_reg: gpio1-b2-d-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "gpio1_b2_d";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio1 10 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&gpio1_b2_d_out>;
++	};
++
++	gpio2_c5_d_reg: gpio2-c5-d-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "gpio2_c5_d";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio2 21 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&gpio2_c5_d_out>;
++	};
++
++};
+ 
+ &combphy0_ps {
+ 	status = "okay";
+-- 
+2.43.0
+
