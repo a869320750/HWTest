@@ -71,7 +71,7 @@ echo 123 > /dev/ttyS0
 
 
 stty -F /dev/ttyS9 speed 115200 cs8 -echo
-cat /dev/ttyS9
+cat /dev/ttyS1
 # 新开一个终端
 echo 123 > /dev/ttyS9
 ```
@@ -236,6 +236,59 @@ ps | grep wpa
 ps | grep NetworkManager
 ```
 
+
+如果brcm目录没有文件的话：
+```sh
+mkdir -p /lib/firmware/brcm
+cp /lib/firmware/fw_bcm4354a1_ag.bin /lib/firmware/brcm/brcmfmac4354-sdio.bin
+cp /lib/firmware/nvram_ap6354.txt /lib/firmware/brcm/brcmfmac4354-sdio.txt
+cd /lib/firmware/brcm/
+cp brcmfmac4354-sdio.txt brcmfmac4354-sdio.rockchip,rk3588-evb7-v11.txt
+```
+
+
+测试wifi功能
+```sh
+# 1 清理之前的进程和文件
+killall wpa_supplicant
+rm -f /var/run/wpa_supplicant/wlan0
+mkdir -p /var/run/wpa_supplicant
+
+# 2 创建WiFi配置文件
+cat > /etc/wpa_supplicant.conf << EOF
+ctrl_interface=/var/run/wpa_supplicant
+ctrl_interface_group=0
+update_config=1
+
+network={
+    ssid="iQOO Neo9S Pro"   # 换成你的WIFI名字
+    psk="12345678"          # 换成你的WIFI密码
+}
+EOF
+
+# 启动wpa_supplicant（后台运行）
+wpa_supplicant -i wlan0 -c /etc/wpa_supplicant.conf -D nl80211 -B
+
+# 检查连接状态
+iw wlan0 link
+
+# 获取IP地址
+udhcpc -i wlan0
+```
+
+
+Menuconfig配置方法
+```bash
+make ARCH=arm64 menuconfig 
+make ARCH=arm64 savedefconfig 
+# 然后kernel根目录会有一个defconfig，cp这个替换rockchip_linux_defconfig
+cp defconfig ./arch/arm64/configs/rockchip_linux_defconfig
+# 这个是kernel的
+
+make ARCH=arm64 olddefconfig
+```
+> ⚠️ 注意：每次进入menuconfig后，务必先Load你自己的.config（比如调通的那份），再进行修改和保存。否则menuconfig会基于默认配置生成.config，导致保存出来的配置和你实际需要的差别很大！
+
 ## 6.5 调试总结与问题分析
 
 ### 6.5.1 SDIO WiFi/BT模块硬件和设备树配置已基本理顺
@@ -365,11 +418,33 @@ echo "echo 0 > /sys/class/gpio/gpio52/value  # 测量低电平"
 2. 硬件同事重点检查上拉电阻和电源域配置  
 3. 如果GPIO输出正常但模块端电压异常，可能是信号完整性问题
 4. WiFi规格书重点看电源时序和GPIO电压要求部分
+
+
 # 7. 惯导传感器（IMU）加速度计；陀螺仪；磁力计"	
-## 7.1UART通信验证(硬件默认UART_RVC 通信)	U9505
-UART通信：用串口工具收发IMU数据，确认数据格式和速率。
-## 7.2 I2C通信验证（软件调整PS1,PS0电平可切换I2C ,详细见手册）	
-I2C通信：用 i2cdetect 扫描I2C地址，i2cget/i2cset 读写寄存器，或用厂家demo程序读取数据。
+## 7.1 当前硬件与配置情况
+- IMU型号：BNO085（或实际型号，需与硬件确认）
+- 通信方式：UART（硬件已焊死为UART模式，PS0/PS1已固定）
+- 主要引脚：
+    - UART1_TX_M1 → GPIO1_B6_u
+    - UART1_RX_M1 → GPIO1_B7_u
+    - IMU_RST → GPIO0_A7_u（复位脚）
+- 设备树配置：
+    - 已删除I2C相关节点
+    - UART1配置为mode1复用，波特率115200
+    - IMU_RST配置为GPIO输出，系统上电自动拉高
+
+## 7.2 测试目标
+- 验证IMU通过UART1输出数据，数据格式和速率正确
+- 验证IMU_RST脚能正常复位IMU模块
+
+## 7.3 测试手段
+```sh
+揻噷詺: 
+stty -F /dev/ttyS1 speed 115200 cs8 -echo
+揻噷詺: 这个命令发两遍，然后
+cat /dev/ttyS1
+就行
+```
 
 # 8. PCIE接口配置与自组网模块调试
 
@@ -510,6 +585,42 @@ fio --name=test --ioengine=libaio --iodepth=1 --rw=randread --bs=4k --direct=1 -
 - 验证防火墙设置
 - 测试不同网络协议
 
+### 8.6.7 nvme硬盘测试
+
+测试用脚本：
+```
+echo "===== 1. 查看PCIe设备列表 ====="
+lspci -vv
+
+echo "===== 2. 查看dmesg中PCIe相关日志 ====="
+dmesg | grep -i pcie
+
+echo "===== 3. 查看dmesg中nvme/sata相关日志 ====="
+dmesg | grep -i nvme
+dmesg | grep -i sata
+
+echo "===== 4. 查看块设备列表（SSD通常为nvme0n1或sda）====="
+lsblk
+
+echo "===== 5. 查看分区信息 ====="
+fdisk -l
+
+echo "===== 6. 查看/sys下PCIe设备节点 ====="
+ls /sys/bus/pci/devices/
+
+echo "===== 7. 检查nvme模块是否加载 ====="
+lsmod | grep nvme
+
+echo "===== 8. 检查PCIe供电相关regulator状态（如有）====="
+grep . /sys/class/regulator/*/name 2>/dev/null | grep -i pcie
+grep . /sys/class/regulator/*/state 2>/dev/null | grep -i pcie
+
+echo "===== 9. 检查PCIe复位GPIO状态（如有）====="
+# 需要root权限，假设gpio编号为123
+# cat /sys/class/gpio/gpio123/value
+
+echo "===== 检查完成，请根据上面各项回显判断SSD是否被识别 ====="
+```
 ---
 
 **下一步行动**：
@@ -885,3 +996,159 @@ GPIO ----[电阻]---- WiFi模块(内部短路或异常负载)
 - **这解释了为什么软件怎么改都没用**：因为硬件电路就有问题
 
 **下一步**：请硬件工程师检查并修复该电阻连接，之后WiFi功能应该就能正常工作了！
+
+### 6.7.9 问题解决确认 - 电阻焊接问题
+
+#### 用户直觉验证成功 ✅
+```
+用户原始怀疑: "电阻焊的有点问题"
+实际测量结果: 电阻两端电压 3.3V → 0.5V
+结论: 用户直觉完全正确！
+```
+
+#### 经典的软硬件调试思路对比
+```
+软件思维: "是不是mmc接管了就不归物理学管理了？"
+硬件现实: "物理定律永远有效，电阻就是电阻！"
+
+程序员逻辑: 软件控制 → 硬件应该工作
+物理学定律: 有电阻 → 必然有压降
+```
+
+#### 这个案例的教育意义
+
+**对软件开发者的启发**:
+1. **软件配置正确 ≠ 硬件一定正常**
+2. **GPIO被驱动接管，但物理连接仍然重要**
+3. **调试需要软硬件结合思维**
+4. **万用表是嵌入式开发的必备工具**
+
+**调试经验总结**:
+```bash
+# 完整的调试流程应该是：
+1. 检查软件配置 (✅ mmc-pwrseq工作正常)
+2. 检查驱动状态 (✅ GPIO20被正确控制)
+3. 检查硬件连接 (❌ 电阻焊接问题导致电压跌落)
+4. 物理测量验证 (✅ 发现根本问题)
+```
+
+#### 类似问题的预防方法
+
+**软件开发者的硬件调试工具包**:
+```bash
+1. 万用表 - 测量电压、电流、电阻
+2. 示波器 - 观察信号时序和质量  
+3. 原理图 - 理解硬件设计逻辑
+4. 数据手册 - 确认器件规格要求
+```
+
+**常见的类似陷阱**:
+- I2C通信失败 → 可能是上拉电阻问题
+- UART无数据 → 可能是波特率或接线问题  
+- LED不亮 → 可能是限流电阻或极性问题
+- 时钟不稳定 → 可能是晶振或负载电容问题
+
+#### 给硬件工程师的建议
+```
+问题: 电阻焊接导致接触电阻过大
+解决: 
+1. 重新焊接该电阻
+2. 或者用更低阻值的电阻替换
+3. 或者直接短接(如果设计允许)
+4. 修复后验证WiFi模块端电压接近3.3V
+```
+
+---
+
+**最终感悟**:
+- **您的硬件直觉很准**：第一感觉就怀疑电阻问题
+- **软件不能违反物理定律**：无论多高级的驱动框架，都要遵循欧姆定律
+- **这是经典的嵌入式调试案例**：软件正确，硬件有问题
+- **万用表是最诚实的调试工具**：它不会撒谎！
+
+现在您既掌握了软件调试，又学会了硬件分析，这种全栈嵌入式能力很宝贵！🚀
+  
+
+# 13. RTK与ADS-B模块调试与验证
+
+## 13.1 硬件连接说明
+- RTK模块：通常通过UART4（TX/RX/RTK_PPS）与主控连接。
+- ADS-B模块：通常通过UART7（TX/RX）与主控连接。
+- 具体引脚分配请参考原理图和设备树配置。
+
+## 13.2 设备树配置要点
+- 确保`&uart4`和`&uart7`节点已在设备树中配置并`status = "okay"`。
+- 检查pinctrl分配，确保物理引脚与原理图一致。
+- 示例：
+```dts
+&uart4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart4m1_xfer>;
+};
+
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m2_xfer>;
+};
+```
+
+## 13.3 串口调试与数据验证
+1. 配置串口参数：
+   ```sh
+   stty -F /dev/ttyS4 speed 115200 cs8 -echo
+   stty -F /dev/ttyS7 speed 115200 cs8 -echo
+   ```
+2. 监控串口数据：
+   ```sh
+   cat /dev/ttyS4   # RTK数据
+   cat /dev/ttyS7   # ADS-B数据
+   ```
+3. 切换VS12-11T等模块工作模式（如有）：
+   ```sh
+   echo -ne "VS11,1#\r\n" > /dev/ttyS4  # 切换到Mode 1
+   ```
+4. 可用shell脚本同时监控两个串口：
+   ```sh
+   (cat /dev/ttyS4 | while read line; do echo "[ttyS4] $line"; done) &
+   (cat /dev/ttyS7 | while read line; do echo "[ttyS7] $line"; done) &
+   wait
+   ```
+5. 若无数据输出，建议做回环测试或检查硬件连线。
+
+## 13.4 常见问题与排查思路
+- 确认串口节点和引脚分配无误。
+- 检查波特率、数据位等参数与模块一致。
+- 用dmesg、ls /dev/ttyS*确认串口驱动加载正常。
+- 如无数据，尝试回环测试（TX-RX短接）。
+- 检查外部模块供电、上电时序和工作模式。
+
+## 13.5 调试经验总结
+- 软件配置正确后，硬件连线和模块状态同样重要。
+- shell脚本可高效实现多串口自动监控，适合嵌入式环境。
+- 结合原理图、设备树和实际信号，逐步排查问题。
+
+# 文档结构与精简建议
+
+你的README目前内容非常丰富，涵盖了硬件、软件、调试、排查等各方面，适合做全流程记录和团队知识库。但1000多行确实不便于快速查阅和维护。建议如下：
+
+1. **分章节拆分为多个md文件**：
+   - 比如：`README.md`（总览/导航）、`uart_debug.md`、`wifi_bt_debug.md`、`pcie_debug.md`、`gpio_test.md`、`hardware_notes.md`等。
+   - 每个文件聚焦一个主题，主README只做目录和快速指引。
+
+2. **精简每章内容**：
+   - 保留关键步骤、常用命令、典型问题和结论。
+   - 详细的原理分析、长命令脚本、调试日志等可放到子文档或附录。
+
+3. **增加目录和索引**：
+   - 在主README顶部加目录，方便跳转。
+   - 重要章节可加锚点链接。
+
+4. **突出常用命令和结论**：
+   - 用表格、代码块、加粗等方式突出高频操作。
+
+5. **定期归档历史内容**：
+   - 老的调试记录、已解决的问题可归档到`history.md`或`archive/`目录。
+
+这样做后，文档会更清晰、易查找、易维护，也方便团队协作和新同事快速上手。

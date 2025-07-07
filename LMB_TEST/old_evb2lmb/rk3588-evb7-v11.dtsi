@@ -226,18 +226,7 @@
 		regulator-boot-on;
 		regulator-min-microvolt = <1100000>;
 		regulator-max-microvolt = <1100000>;
-		vin-supply = <&vcc4v0_sys>;
-	};
-
-	// 在 rk3588-evb7-v11.dtsi 中添加：
-	vcc4v0_sys: vcc4v0-sys {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc4v0_sys";
-		regulator-min-microvolt = <4000000>;
-		regulator-max-microvolt = <4000000>;
-		regulator-always-on;
-		regulator-boot-on;
-		vin-supply = <&vcc5v0_sys>;  // 从5V降压得到4V
+		vin-supply = <&vcc5v0_sys>;
 	};
 
 	// vbus5v0_typec: vbus5v0-typec {
@@ -259,12 +248,16 @@
 		regulator-name = "vcc3v3_pcie30";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+		//regulator-always-on;
+		//regulator-boot-on;
 		enable-active-high;
-		//gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
+		pinctrl-0 = <&vcc3v3_pcie30_gpio>;
 		// pinctrl-0 = <&wifi_poweren_gpio>;
 		startup-delay-us = <5000>;
 		vin-supply = <&vcc12v_dcin>;
+		status = "okay";
 	};
 
 	vcc5v0_host: vcc5v0-host {
@@ -275,7 +268,7 @@
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		enable-active-high;
-		gpio = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio4 RK_PA1 GPIO_ACTIVE_LOW>; // 先调成LOW
 		vin-supply = <&vcc5v0_usb>;
 	};
 
@@ -354,6 +347,17 @@
 		status = "okay";
 	};
 	// regulator-fixed 配置片段
+
+	imu_rst_reg: imu-rst-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "imu_rst";
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&gpio0 RK_PA7 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&imu_rst_h>;
+	};
+
 	gpio3_d5_d_reg: gpio3-d5-d-regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "gpio3_d5_d";
@@ -706,15 +710,23 @@ ports {
 };
 
 &pcie2x1l0 {
-	reset-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_LOW>;
 	rockchip,skip-scan-in-resume;
 	//rockchip,perst-inactive-ms = <500>;
 	vpcie3v3-supply = <&vcc3v3_pcie30>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2x1l1 {
 	reset-gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_HIGH>;
+	status = "disabled";
+};
+
+
+&pcie2x1l2 {
+	reset-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
+	//rockchip,skip-scan-in-resume;
+	vpcie3v3-supply = <&vcc3v3_pcie30>;
 	status = "okay";
 };
 
@@ -852,6 +864,10 @@ ports {
 		pcie20x1_0_clkreqn_m1: pcie20x1-0-clkreqn-m1 {
 			rockchip,pins = <4 RK_PB4 RK_FUNC_GPIO &pcfg_output_low>;
 		};
+		vcc3v3_pcie30_gpio: vcc3v3-pcie30-gpio {
+			rockchip,pins = <3 RK_PD3 RK_FUNC_GPIO &pcfg_pull_up>; // GPIO4_D3_u
+		};
+
 	};
 };
 
@@ -914,6 +930,12 @@ ports {
 // 	// vmmc-supply = <&vcc_3v3_sd_s0>;
 // };
 
+&gpio0 {
+    imu_rst_h: imu-rst-h {
+        rockchip,pins = <0 RK_PA7 RK_FUNC_GPIO &pcfg_pull_none>;
+    };
+};
+
 &uart9 {
 	status = "okay";
 	// pinctrl-names = "default";
@@ -926,6 +948,12 @@ ports {
 	pinctrl-0 = <&uart0m2_xfer>;
 };
 
+&uart1 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart1m1_xfer>;
+    // current-speed = <115200>; // 波特率
+};
 
 &uart3 {
     status = "okay";
@@ -933,10 +961,23 @@ ports {
     pinctrl-0 = <&uart3m2_xfer>;
 };
 
+&uart4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart4m1_xfer>;
+};
+
 &uart6 {
     status = "okay";
     pinctrl-names = "default";
     pinctrl-0 = <&uart6m1_xfer>;
+};
+
+
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m2_xfer>;
 };
 
 &u2phy0_otg {
@@ -960,6 +1001,7 @@ ports {
 
 	orientation-switch;
 	svid = <0xff01>;
+	phy-supply = <&vcc5v0_host>;
 	//sbu1-dc-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
 	//sbu2-dc-gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
 
@@ -986,8 +1028,8 @@ ports {
 &usbdrd_dwc3_0 {
 	status = "okay";
 	extcon = <&u2phy0>;
-	dr_mode = "otg";
-	usb-role-switch;
+	dr_mode = "host";
+	// usb-role-switch;
 	port {
 		#address-cells = <1>;
 		#size-cells = <0>;

@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/dts-v1/;
+
+#include "rk3588-evb7-v11.dtsi"
+//#include "rk3588-evb7-v11-imx415.dtsi"
+//#include "rk3588-cvbs-gm7150-bt656.dtsi"
+//#include "rk3588-cvbs-ov426-bt656.dtsi"
+#include "rk3588-evb7-v11-ov9734.dtsi"
+// #include "zd-g1548fh131gg-1920-1080-mipi.dtsi"
+#include "rk3588-linux.dtsi"
+
+/ {
+	model = "Rockchip RK3588 EVB7 V11 Board";
+	compatible = "rockchip,rk3588-evb7-v11", "rockchip,rk3588";
+	
+	// nkj-keys {
+    //     compatible = "gpio-keys";
+	// 	#address-cells = <1>;
+	// 	#size-cells = <0>;
+    //     autorepeat;
+
+	// 	pinctrl-names = "default";
+	// 	pinctrl-0 = <&n_keys>;
+
+	// 	//拍照 下
+	// 	down {
+	// 		label = "GPIO Key down";
+	// 		linux,code = <KEY_DOWN>;
+	// 		gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_LOW>;
+	// 		debounce-interval = <20>;
+	// 		gpio-key,wakeup;			
+	// 	};
+
+		
+	// 	//菜单 ok
+	// 	menu {
+	// 		label = "GPIO Key menu";
+	// 		linux,code = <KEY_MINUS>;
+	// 		gpios = <&gpio0 RK_PD0 GPIO_ACTIVE_LOW>;
+	// 		debounce-interval = <20>;
+	// 		gpio-key,wakeup;
+	// 	};
+		
+	// 	//返回
+	// 	return {
+	// 		label = "GPIO Key return";
+	// 		linux,code = <KEY_SPACE>;
+	// 		gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_LOW>;
+	// 		debounce-interval = <20>;
+	// 		gpio-key,wakeup;
+	// 	};
+		
+	// 	//录像 上
+	// 	up {
+	// 		label = "GPIO Key up";
+	// 		linux,code = <KEY_UP>;
+	// 		gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
+	// 		debounce-interval = <20>;
+	// 		gpio-key,wakeup;
+	// 	};
+		
+	// 	//led
+	// 	led {
+	// 		label = "GPIO Key led";
+	// 		linux,code = <KEY_F3>;
+	// 		gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
+	// 		debounce-interval = <20>;
+	// 		gpio-key,wakeup;
+	// 	};
+		
+	// };
+	
+	pwm-leds {
+		status = "okay";
+		compatible = "pwm-leds";
+		front {
+			active-low;
+			label = "nkj_led";
+			max-brightness = <255>;
+			pwms = <&pwm4 0 1000000 1>;
+		};
+	};
+};
+
+
+
+
+&pwm4 {
+	status = "okay";
+	pinctrl-0 = <&pwm4m0_pins>;
+};
+
+
+&rkispp0 {
+	status = "okay";
+};
+
+&fec0_mmu {
+	status = "okay";
+};
+&rkispp1 {
+	status = "okay";
+};
+&fec1_mmu {
+	status = "okay";
+};
+
+
+&pinctrl {
+	buttons {
+		n_keys: n-keys {
+			rockchip,pins =
+				<4 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>,
+				<0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_up>,
+				<0 RK_PC7 RK_FUNC_GPIO &pcfg_pull_up>,
+				<1 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
+				<1 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
+		};		
+	};
+};
