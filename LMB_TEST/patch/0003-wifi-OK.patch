@@ -1,0 +1,60 @@
+From e3795454b67d044733bad9dd7edf9887068b4cb7 Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Wed, 2 Jul 2025 11:10:26 +0800
+Subject: [PATCH 03/11] wifi OK
+
+---
+ .../arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index bc2131ad77a7..d892aebcee1f 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -80,6 +80,13 @@ gpio1_c6_d_reg: gpio1-c6-d-regulator {
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&gpio1_c6_d_out>;
+ 	};
++
++	rtc32k: rtc32k {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		clock-output-names = "rtc32k";
++	};
+ /*
+ 	es8388_sound: es8388-sound {
+ 		status = "okay";
+@@ -197,7 +204,7 @@ sdio_pwrseq: sdio-pwrseq {
+ 		 * - SDIO_RESET_L_WL_REG_ON
+ 		 * - PDN (power down when low)
+ 		 */
+-		reset-gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;  // GPIO0_C4_d WIFI_REG_ON_H
++		reset-gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_LOW>;  // GPIO0_C4_d WIFI_REG_ON_H
+ 		post-power-on-delay-ms = <200>;
+ 	};
+ 
+@@ -311,6 +318,11 @@ wireless_bluetooth: wireless-bluetooth {
+ 		pinctrl-names = "default", "rts_gpio";
+ 		pinctrl-0 = <&uart9m0_rtsn &bt_wake_gpio &bt_host_wake_gpio &clk32k_out1>;
+ 		// pinctrl-0 = <&uart9m0_rtsn>, <&bt_reg_on_gpio>, <&bt_wake_gpio>, <&bt_host_wake_gpio>;
++    
++		// 必须添加的时钟引用
++		clocks = <&rtc32k>;
++		clock-names = "ref_wifi_clk";
++
+ 		pinctrl-1 = <&uart9_gpios>;
+ 		// BT,reset_gpio    = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>; // GPIO0_C6_u BT_REG_ON_H
+ 		BT,wake_gpio     = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>; // GPIO0_A0_d BT_WAKE_HOST_H
+@@ -320,6 +332,8 @@ wireless_bluetooth: wireless-bluetooth {
+ 
+ 	wireless_wlan: wireless-wlan {
+ 		compatible = "wlan-platdata";
++		clocks = <&rtc32k>;
++		clock-names = "ref_wifi_clk";
+ 		wifi_chip_type = "ap6354";
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wifi_host_wake_irq>;
+-- 
+2.43.0
+

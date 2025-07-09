@@ -67,6 +67,8 @@ if __name__ == "__main__":
         ("GPIO3_D2_D", "high"),
         ("GPIO4_B6_D", "high"),
         ("GPIO3_D3_D", "high"),
+        ("GPIO1_B3_D", "high"),
+        ("GPIO3_D4_D", "high"),
     ]
 
     print("// GPIO编号对照表")

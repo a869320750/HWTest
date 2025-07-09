@@ -1,0 +1,5327 @@
+From f40ec8c115f060d051d905fc829181da68e3962f Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Tue, 24 Jun 2025 14:11:22 +0800
+Subject: [PATCH 01/11] three patches
+
+Signed-off-by: zd <root@DESKTOP-QH0N003.localdomain>
+---
+ arch/arm64/boot/dts/rockchip/rk3588-evb.dtsi  |  718 +------
+ .../dts/rockchip/rk3588-evb7-v11-linux.dts    |  111 +-
+ .../dts/rockchip/rk3588-evb7-v11-ov9734.dtsi  |  193 ++
+ .../boot/dts/rockchip/rk3588-evb7-v11.dtsi    |  412 ++--
+ .../dts/rockchip/rk3588-rk806-single.dtsi     |   24 +-
+ .../zd-g1548fh131gg-1920-1080-mipi.dtsi       |  641 +++++++
+ arch/arm64/configs/rockchip_linux_defconfig   |    1 +
+ drivers/media/i2c/Makefile                    |    1 +
+ drivers/media/i2c/ov9734.c                    | 1666 +++++++++++++++++
+ drivers/net/phy/Kconfig                       |    6 +
+ drivers/net/phy/Makefile                      |    1 +
+ drivers/net/phy/linkyum.c                     | 1025 ++++++++++
+ 12 files changed, 3842 insertions(+), 957 deletions(-)
+ create mode 100755 arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-ov9734.dtsi
+ create mode 100755 arch/arm64/boot/dts/rockchip/zd-g1548fh131gg-1920-1080-mipi.dtsi
+ create mode 100755 drivers/media/i2c/ov9734.c
+ create mode 100644 drivers/net/phy/linkyum.c
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb.dtsi
+index 55c891532185..1072e64920e4 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb.dtsi
+@@ -45,45 +45,6 @@ back-key {
+ 		};
+ 	};
+ 
+-	backlight: backlight {
+-		compatible = "pwm-backlight";
+-		brightness-levels = <
+-			  0  20  20  21  21  22  22  23
+-			 23  24  24  25  25  26  26  27
+-			 27  28  28  29  29  30  30  31
+-			 31  32  32  33  33  34  34  35
+-			 35  36  36  37  37  38  38  39
+-			 40  41  42  43  44  45  46  47
+-			 48  49  50  51  52  53  54  55
+-			 56  57  58  59  60  61  62  63
+-			 64  65  66  67  68  69  70  71
+-			 72  73  74  75  76  77  78  79
+-			 80  81  82  83  84  85  86  87
+-			 88  89  90  91  92  93  94  95
+-			 96  97  98  99 100 101 102 103
+-			104 105 106 107 108 109 110 111
+-			112 113 114 115 116 117 118 119
+-			120 121 122 123 124 125 126 127
+-			128 129 130 131 132 133 134 135
+-			136 137 138 139 140 141 142 143
+-			144 145 146 147 148 149 150 151
+-			152 153 154 155 156 157 158 159
+-			160 161 162 163 164 165 166 167
+-			168 169 170 171 172 173 174 175
+-			176 177 178 179 180 181 182 183
+-			184 185 186 187 188 189 190 191
+-			192 193 194 195 196 197 198 199
+-			200 201 202 203 204 205 206 207
+-			208 209 210 211 212 213 214 215
+-			216 217 218 219 220 221 222 223
+-			224 225 226 227 228 229 230 231
+-			232 233 234 235 236 237 238 239
+-			240 241 242 243 244 245 246 247
+-			248 249 250 251 252 253 254 255
+-		>;
+-		default-brightness-level = <200>;
+-	};
+-
+ 	bt_sco: bt-sco {
+ 		status = "disabled";
+ 		compatible = "delta,dfbmcs320";
+@@ -166,7 +127,7 @@ dp1_sound: dp1-sound {
+ 	leds: leds {
+ 		compatible = "gpio-leds";
+ 		work_led: work {
+-			gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
++			//gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
+ 			linux,default-trigger = "heartbeat";
+ 		};
+ 	};
+@@ -222,6 +183,16 @@ vcc12v_dcin: vcc12v-dcin {
+ 		regulator-max-microvolt = <12000000>;
+ 	};
+ 
++	vcc4v0_sys: vcc4v0-sys {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc4v0_sys";
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-min-microvolt = <4000000>;
++		regulator-max-microvolt = <4000000>;
++		vin-supply = <&vcc12v_dcin>;
++	};
++	
+ 	vcc5v0_sys: vcc5v0-sys {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "vcc5v0_sys";
+@@ -276,673 +247,6 @@ &cpu_b2 {
+ 	mem-supply = <&vdd_cpu_big1_mem_s0>;
+ };
+ 
+-&dsi0 {
+-	status = "disabled";
+-	//rockchip,lane-rate = <1000>;
+-	dsi0_panel: panel@0 {
+-		status = "okay";
+-		compatible = "simple-panel-dsi";
+-		reg = <0>;
+-		backlight = <&backlight>;
+-		reset-delay-ms = <10>;
+-		enable-delay-ms = <10>;
+-		prepare-delay-ms = <10>;
+-		unprepare-delay-ms = <10>;
+-		disable-delay-ms = <60>;
+-		width-mm = <68>;
+-		height-mm = <121>;
+-		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
+-		dsi,format = <MIPI_DSI_FMT_RGB888>;
+-		dsi,lanes  = <4>;
+-		panel-init-sequence = [
+-			23 00 02 FE 21
+-			23 00 02 04 00
+-			23 00 02 00 64
+-			23 00 02 2A 00
+-			23 00 02 26 64
+-			23 00 02 54 00
+-			23 00 02 50 64
+-			23 00 02 7B 00
+-			23 00 02 77 64
+-			23 00 02 A2 00
+-			23 00 02 9D 64
+-			23 00 02 C9 00
+-			23 00 02 C5 64
+-			23 00 02 01 71
+-			23 00 02 27 71
+-			23 00 02 51 71
+-			23 00 02 78 71
+-			23 00 02 9E 71
+-			23 00 02 C6 71
+-			23 00 02 02 89
+-			23 00 02 28 89
+-			23 00 02 52 89
+-			23 00 02 79 89
+-			23 00 02 9F 89
+-			23 00 02 C7 89
+-			23 00 02 03 9E
+-			23 00 02 29 9E
+-			23 00 02 53 9E
+-			23 00 02 7A 9E
+-			23 00 02 A0 9E
+-			23 00 02 C8 9E
+-			23 00 02 09 00
+-			23 00 02 05 B0
+-			23 00 02 31 00
+-			23 00 02 2B B0
+-			23 00 02 5A 00
+-			23 00 02 55 B0
+-			23 00 02 80 00
+-			23 00 02 7C B0
+-			23 00 02 A7 00
+-			23 00 02 A3 B0
+-			23 00 02 CE 00
+-			23 00 02 CA B0
+-			23 00 02 06 C0
+-			23 00 02 2D C0
+-			23 00 02 56 C0
+-			23 00 02 7D C0
+-			23 00 02 A4 C0
+-			23 00 02 CB C0
+-			23 00 02 07 CF
+-			23 00 02 2F CF
+-			23 00 02 58 CF
+-			23 00 02 7E CF
+-			23 00 02 A5 CF
+-			23 00 02 CC CF
+-			23 00 02 08 DD
+-			23 00 02 30 DD
+-			23 00 02 59 DD
+-			23 00 02 7F DD
+-			23 00 02 A6 DD
+-			23 00 02 CD DD
+-			23 00 02 0E 15
+-			23 00 02 0A E9
+-			23 00 02 36 15
+-			23 00 02 32 E9
+-			23 00 02 5F 15
+-			23 00 02 5B E9
+-			23 00 02 85 15
+-			23 00 02 81 E9
+-			23 00 02 AD 15
+-			23 00 02 A9 E9
+-			23 00 02 D3 15
+-			23 00 02 CF E9
+-			23 00 02 0B 14
+-			23 00 02 33 14
+-			23 00 02 5C 14
+-			23 00 02 82 14
+-			23 00 02 AA 14
+-			23 00 02 D0 14
+-			23 00 02 0C 36
+-			23 00 02 34 36
+-			23 00 02 5D 36
+-			23 00 02 83 36
+-			23 00 02 AB 36
+-			23 00 02 D1 36
+-			23 00 02 0D 6B
+-			23 00 02 35 6B
+-			23 00 02 5E 6B
+-			23 00 02 84 6B
+-			23 00 02 AC 6B
+-			23 00 02 D2 6B
+-			23 00 02 13 5A
+-			23 00 02 0F 94
+-			23 00 02 3B 5A
+-			23 00 02 37 94
+-			23 00 02 64 5A
+-			23 00 02 60 94
+-			23 00 02 8A 5A
+-			23 00 02 86 94
+-			23 00 02 B2 5A
+-			23 00 02 AE 94
+-			23 00 02 D8 5A
+-			23 00 02 D4 94
+-			23 00 02 10 D1
+-			23 00 02 38 D1
+-			23 00 02 61 D1
+-			23 00 02 87 D1
+-			23 00 02 AF D1
+-			23 00 02 D5 D1
+-			23 00 02 11 04
+-			23 00 02 39 04
+-			23 00 02 62 04
+-			23 00 02 88 04
+-			23 00 02 B0 04
+-			23 00 02 D6 04
+-			23 00 02 12 05
+-			23 00 02 3A 05
+-			23 00 02 63 05
+-			23 00 02 89 05
+-			23 00 02 B1 05
+-			23 00 02 D7 05
+-			23 00 02 18 AA
+-			23 00 02 14 36
+-			23 00 02 42 AA
+-			23 00 02 3D 36
+-			23 00 02 69 AA
+-			23 00 02 65 36
+-			23 00 02 8F AA
+-			23 00 02 8B 36
+-			23 00 02 B7 AA
+-			23 00 02 B3 36
+-			23 00 02 DD AA
+-			23 00 02 D9 36
+-			23 00 02 15 74
+-			23 00 02 3F 74
+-			23 00 02 66 74
+-			23 00 02 8C 74
+-			23 00 02 B4 74
+-			23 00 02 DA 74
+-			23 00 02 16 9F
+-			23 00 02 40 9F
+-			23 00 02 67 9F
+-			23 00 02 8D 9F
+-			23 00 02 B5 9F
+-			23 00 02 DB 9F
+-			23 00 02 17 DC
+-			23 00 02 41 DC
+-			23 00 02 68 DC
+-			23 00 02 8E DC
+-			23 00 02 B6 DC
+-			23 00 02 DC DC
+-			23 00 02 1D FF
+-			23 00 02 19 03
+-			23 00 02 47 FF
+-			23 00 02 43 03
+-			23 00 02 6E FF
+-			23 00 02 6A 03
+-			23 00 02 94 FF
+-			23 00 02 90 03
+-			23 00 02 BC FF
+-			23 00 02 B8 03
+-			23 00 02 E2 FF
+-			23 00 02 DE 03
+-			23 00 02 1A 35
+-			23 00 02 44 35
+-			23 00 02 6B 35
+-			23 00 02 91 35
+-			23 00 02 B9 35
+-			23 00 02 DF 35
+-			23 00 02 1B 45
+-			23 00 02 45 45
+-			23 00 02 6C 45
+-			23 00 02 92 45
+-			23 00 02 BA 45
+-			23 00 02 E0 45
+-			23 00 02 1C 55
+-			23 00 02 46 55
+-			23 00 02 6D 55
+-			23 00 02 93 55
+-			23 00 02 BB 55
+-			23 00 02 E1 55
+-			23 00 02 22 FF
+-			23 00 02 1E 68
+-			23 00 02 4C FF
+-			23 00 02 48 68
+-			23 00 02 73 FF
+-			23 00 02 6F 68
+-			23 00 02 99 FF
+-			23 00 02 95 68
+-			23 00 02 C1 FF
+-			23 00 02 BD 68
+-			23 00 02 E7 FF
+-			23 00 02 E3 68
+-			23 00 02 1F 7E
+-			23 00 02 49 7E
+-			23 00 02 70 7E
+-			23 00 02 96 7E
+-			23 00 02 BE 7E
+-			23 00 02 E4 7E
+-			23 00 02 20 97
+-			23 00 02 4A 97
+-			23 00 02 71 97
+-			23 00 02 97 97
+-			23 00 02 BF 97
+-			23 00 02 E5 97
+-			23 00 02 21 B5
+-			23 00 02 4B B5
+-			23 00 02 72 B5
+-			23 00 02 98 B5
+-			23 00 02 C0 B5
+-			23 00 02 E6 B5
+-			23 00 02 25 F0
+-			23 00 02 23 E8
+-			23 00 02 4F F0
+-			23 00 02 4D E8
+-			23 00 02 76 F0
+-			23 00 02 74 E8
+-			23 00 02 9C F0
+-			23 00 02 9A E8
+-			23 00 02 C4 F0
+-			23 00 02 C2 E8
+-			23 00 02 EA F0
+-			23 00 02 E8 E8
+-			23 00 02 24 FF
+-			23 00 02 4E FF
+-			23 00 02 75 FF
+-			23 00 02 9B FF
+-			23 00 02 C3 FF
+-			23 00 02 E9 FF
+-			23 00 02 FE 3D
+-			23 00 02 00 04
+-			23 00 02 FE 23
+-			23 00 02 08 82
+-			23 00 02 0A 00
+-			23 00 02 0B 00
+-			23 00 02 0C 01
+-			23 00 02 16 00
+-			23 00 02 18 02
+-			23 00 02 1B 04
+-			23 00 02 19 04
+-			23 00 02 1C 81
+-			23 00 02 1F 00
+-			23 00 02 20 03
+-			23 00 02 23 04
+-			23 00 02 21 01
+-			23 00 02 54 63
+-			23 00 02 55 54
+-			23 00 02 6E 45
+-			23 00 02 6D 36
+-			23 00 02 FE 3D
+-			23 00 02 55 78
+-			23 00 02 FE 20
+-			23 00 02 26 30
+-			23 00 02 FE 3D
+-			23 00 02 20 71
+-			23 00 02 50 8F
+-			23 00 02 51 8F
+-			23 00 02 FE 00
+-			23 00 02 35 00
+-			05 78 01 11
+-			05 00 01 29
+-		];
+-
+-		panel-exit-sequence = [
+-			05 00 01 28
+-			05 00 01 10
+-		];
+-
+-		disp_timings0: display-timings {
+-			native-mode = <&dsi0_timing0>;
+-			dsi0_timing0: timing0 {
+-				clock-frequency = <132000000>;
+-				hactive = <1080>;
+-				vactive = <1920>;
+-				hfront-porch = <15>;
+-				hsync-len = <4>;
+-				hback-porch = <30>;
+-				vfront-porch = <15>;
+-				vsync-len = <2>;
+-				vback-porch = <15>;
+-				hsync-active = <0>;
+-				vsync-active = <0>;
+-				de-active = <0>;
+-				pixelclk-active = <0>;
+-			};
+-		};
+-
+-		ports {
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-
+-			port@0 {
+-				reg = <0>;
+-				panel_in_dsi: endpoint {
+-					remote-endpoint = <&dsi_out_panel>;
+-				};
+-			};
+-		};
+-	};
+-
+-	ports {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-
+-		port@1 {
+-			reg = <1>;
+-			dsi_out_panel: endpoint {
+-				remote-endpoint = <&panel_in_dsi>;
+-			};
+-		};
+-	};
+-
+-};
+-
+-&dsi1 {
+-	status = "disabled";
+-	//rockchip,lane-rate = <1000>;
+-	dsi1_panel: panel@0 {
+-		status = "okay";
+-		compatible = "simple-panel-dsi";
+-		reg = <0>;
+-		backlight = <&backlight>;
+-		reset-delay-ms = <10>;
+-		enable-delay-ms = <10>;
+-		prepare-delay-ms = <10>;
+-		unprepare-delay-ms = <10>;
+-		disable-delay-ms = <10>;
+-		width-mm = <68>;
+-		height-mm = <121>;
+-		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
+-		dsi,format = <MIPI_DSI_FMT_RGB888>;
+-		dsi,lanes  = <4>;
+-		panel-init-sequence = [
+-			23 00 02 FE 21
+-			23 00 02 04 00
+-			23 00 02 00 64
+-			23 00 02 2A 00
+-			23 00 02 26 64
+-			23 00 02 54 00
+-			23 00 02 50 64
+-			23 00 02 7B 00
+-			23 00 02 77 64
+-			23 00 02 A2 00
+-			23 00 02 9D 64
+-			23 00 02 C9 00
+-			23 00 02 C5 64
+-			23 00 02 01 71
+-			23 00 02 27 71
+-			23 00 02 51 71
+-			23 00 02 78 71
+-			23 00 02 9E 71
+-			23 00 02 C6 71
+-			23 00 02 02 89
+-			23 00 02 28 89
+-			23 00 02 52 89
+-			23 00 02 79 89
+-			23 00 02 9F 89
+-			23 00 02 C7 89
+-			23 00 02 03 9E
+-			23 00 02 29 9E
+-			23 00 02 53 9E
+-			23 00 02 7A 9E
+-			23 00 02 A0 9E
+-			23 00 02 C8 9E
+-			23 00 02 09 00
+-			23 00 02 05 B0
+-			23 00 02 31 00
+-			23 00 02 2B B0
+-			23 00 02 5A 00
+-			23 00 02 55 B0
+-			23 00 02 80 00
+-			23 00 02 7C B0
+-			23 00 02 A7 00
+-			23 00 02 A3 B0
+-			23 00 02 CE 00
+-			23 00 02 CA B0
+-			23 00 02 06 C0
+-			23 00 02 2D C0
+-			23 00 02 56 C0
+-			23 00 02 7D C0
+-			23 00 02 A4 C0
+-			23 00 02 CB C0
+-			23 00 02 07 CF
+-			23 00 02 2F CF
+-			23 00 02 58 CF
+-			23 00 02 7E CF
+-			23 00 02 A5 CF
+-			23 00 02 CC CF
+-			23 00 02 08 DD
+-			23 00 02 30 DD
+-			23 00 02 59 DD
+-			23 00 02 7F DD
+-			23 00 02 A6 DD
+-			23 00 02 CD DD
+-			23 00 02 0E 15
+-			23 00 02 0A E9
+-			23 00 02 36 15
+-			23 00 02 32 E9
+-			23 00 02 5F 15
+-			23 00 02 5B E9
+-			23 00 02 85 15
+-			23 00 02 81 E9
+-			23 00 02 AD 15
+-			23 00 02 A9 E9
+-			23 00 02 D3 15
+-			23 00 02 CF E9
+-			23 00 02 0B 14
+-			23 00 02 33 14
+-			23 00 02 5C 14
+-			23 00 02 82 14
+-			23 00 02 AA 14
+-			23 00 02 D0 14
+-			23 00 02 0C 36
+-			23 00 02 34 36
+-			23 00 02 5D 36
+-			23 00 02 83 36
+-			23 00 02 AB 36
+-			23 00 02 D1 36
+-			23 00 02 0D 6B
+-			23 00 02 35 6B
+-			23 00 02 5E 6B
+-			23 00 02 84 6B
+-			23 00 02 AC 6B
+-			23 00 02 D2 6B
+-			23 00 02 13 5A
+-			23 00 02 0F 94
+-			23 00 02 3B 5A
+-			23 00 02 37 94
+-			23 00 02 64 5A
+-			23 00 02 60 94
+-			23 00 02 8A 5A
+-			23 00 02 86 94
+-			23 00 02 B2 5A
+-			23 00 02 AE 94
+-			23 00 02 D8 5A
+-			23 00 02 D4 94
+-			23 00 02 10 D1
+-			23 00 02 38 D1
+-			23 00 02 61 D1
+-			23 00 02 87 D1
+-			23 00 02 AF D1
+-			23 00 02 D5 D1
+-			23 00 02 11 04
+-			23 00 02 39 04
+-			23 00 02 62 04
+-			23 00 02 88 04
+-			23 00 02 B0 04
+-			23 00 02 D6 04
+-			23 00 02 12 05
+-			23 00 02 3A 05
+-			23 00 02 63 05
+-			23 00 02 89 05
+-			23 00 02 B1 05
+-			23 00 02 D7 05
+-			23 00 02 18 AA
+-			23 00 02 14 36
+-			23 00 02 42 AA
+-			23 00 02 3D 36
+-			23 00 02 69 AA
+-			23 00 02 65 36
+-			23 00 02 8F AA
+-			23 00 02 8B 36
+-			23 00 02 B7 AA
+-			23 00 02 B3 36
+-			23 00 02 DD AA
+-			23 00 02 D9 36
+-			23 00 02 15 74
+-			23 00 02 3F 74
+-			23 00 02 66 74
+-			23 00 02 8C 74
+-			23 00 02 B4 74
+-			23 00 02 DA 74
+-			23 00 02 16 9F
+-			23 00 02 40 9F
+-			23 00 02 67 9F
+-			23 00 02 8D 9F
+-			23 00 02 B5 9F
+-			23 00 02 DB 9F
+-			23 00 02 17 DC
+-			23 00 02 41 DC
+-			23 00 02 68 DC
+-			23 00 02 8E DC
+-			23 00 02 B6 DC
+-			23 00 02 DC DC
+-			23 00 02 1D FF
+-			23 00 02 19 03
+-			23 00 02 47 FF
+-			23 00 02 43 03
+-			23 00 02 6E FF
+-			23 00 02 6A 03
+-			23 00 02 94 FF
+-			23 00 02 90 03
+-			23 00 02 BC FF
+-			23 00 02 B8 03
+-			23 00 02 E2 FF
+-			23 00 02 DE 03
+-			23 00 02 1A 35
+-			23 00 02 44 35
+-			23 00 02 6B 35
+-			23 00 02 91 35
+-			23 00 02 B9 35
+-			23 00 02 DF 35
+-			23 00 02 1B 45
+-			23 00 02 45 45
+-			23 00 02 6C 45
+-			23 00 02 92 45
+-			23 00 02 BA 45
+-			23 00 02 E0 45
+-			23 00 02 1C 55
+-			23 00 02 46 55
+-			23 00 02 6D 55
+-			23 00 02 93 55
+-			23 00 02 BB 55
+-			23 00 02 E1 55
+-			23 00 02 22 FF
+-			23 00 02 1E 68
+-			23 00 02 4C FF
+-			23 00 02 48 68
+-			23 00 02 73 FF
+-			23 00 02 6F 68
+-			23 00 02 99 FF
+-			23 00 02 95 68
+-			23 00 02 C1 FF
+-			23 00 02 BD 68
+-			23 00 02 E7 FF
+-			23 00 02 E3 68
+-			23 00 02 1F 7E
+-			23 00 02 49 7E
+-			23 00 02 70 7E
+-			23 00 02 96 7E
+-			23 00 02 BE 7E
+-			23 00 02 E4 7E
+-			23 00 02 20 97
+-			23 00 02 4A 97
+-			23 00 02 71 97
+-			23 00 02 97 97
+-			23 00 02 BF 97
+-			23 00 02 E5 97
+-			23 00 02 21 B5
+-			23 00 02 4B B5
+-			23 00 02 72 B5
+-			23 00 02 98 B5
+-			23 00 02 C0 B5
+-			23 00 02 E6 B5
+-			23 00 02 25 F0
+-			23 00 02 23 E8
+-			23 00 02 4F F0
+-			23 00 02 4D E8
+-			23 00 02 76 F0
+-			23 00 02 74 E8
+-			23 00 02 9C F0
+-			23 00 02 9A E8
+-			23 00 02 C4 F0
+-			23 00 02 C2 E8
+-			23 00 02 EA F0
+-			23 00 02 E8 E8
+-			23 00 02 24 FF
+-			23 00 02 4E FF
+-			23 00 02 75 FF
+-			23 00 02 9B FF
+-			23 00 02 C3 FF
+-			23 00 02 E9 FF
+-			23 00 02 FE 3D
+-			23 00 02 00 04
+-			23 00 02 FE 23
+-			23 00 02 08 82
+-			23 00 02 0A 00
+-			23 00 02 0B 00
+-			23 00 02 0C 01
+-			23 00 02 16 00
+-			23 00 02 18 02
+-			23 00 02 1B 04
+-			23 00 02 19 04
+-			23 00 02 1C 81
+-			23 00 02 1F 00
+-			23 00 02 20 03
+-			23 00 02 23 04
+-			23 00 02 21 01
+-			23 00 02 54 63
+-			23 00 02 55 54
+-			23 00 02 6E 45
+-			23 00 02 6D 36
+-			23 00 02 FE 3D
+-			23 00 02 55 78
+-			23 00 02 FE 20
+-			23 00 02 26 30
+-			23 00 02 FE 3D
+-			23 00 02 20 71
+-			23 00 02 50 8F
+-			23 00 02 51 8F
+-			23 00 02 FE 00
+-			23 00 02 35 00
+-			05 78 01 11
+-			05 00 01 29
+-		];
+-
+-		panel-exit-sequence = [
+-			05 00 01 28
+-			05 00 01 10
+-		];
+-
+-		disp_timings1: display-timings {
+-			native-mode = <&dsi1_timing0>;
+-			dsi1_timing0: timing0 {
+-				clock-frequency = <132000000>;
+-				hactive = <1080>;
+-				vactive = <1920>;
+-				hfront-porch = <15>;
+-				hsync-len = <4>;
+-				hback-porch = <30>;
+-				vfront-porch = <15>;
+-				vsync-len = <2>;
+-				vback-porch = <15>;
+-				hsync-active = <0>;
+-				vsync-active = <0>;
+-				de-active = <0>;
+-				pixelclk-active = <0>;
+-			};
+-		};
+-
+-		ports {
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-
+-			port@0 {
+-				reg = <0>;
+-				panel_in_dsi1: endpoint {
+-					remote-endpoint = <&dsi1_out_panel>;
+-				};
+-			};
+-		};
+-	};
+-
+-	ports {
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-
+-		port@1 {
+-			reg = <1>;
+-			dsi1_out_panel: endpoint {
+-				remote-endpoint = <&panel_in_dsi1>;
+-			};
+-		};
+-	};
+-
+-};
+ 
+ &gpu {
+ 	mali-supply = <&vdd_gpu_s0>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-linux.dts b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-linux.dts
+index f4051df93d9f..3de93647926c 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-linux.dts
+@@ -7,10 +7,119 @@
+ /dts-v1/;
+ 
+ #include "rk3588-evb7-v11.dtsi"
+-#include "rk3588-evb7-v11-imx415.dtsi"
++//#include "rk3588-evb7-v11-imx415.dtsi"
++//#include "rk3588-cvbs-gm7150-bt656.dtsi"
++//#include "rk3588-cvbs-ov426-bt656.dtsi"
++#include "rk3588-evb7-v11-ov9734.dtsi"
++#include "zd-g1548fh131gg-1920-1080-mipi.dtsi"
+ #include "rk3588-linux.dtsi"
+ 
+ / {
+ 	model = "Rockchip RK3588 EVB7 V11 Board";
+ 	compatible = "rockchip,rk3588-evb7-v11", "rockchip,rk3588";
++	
++	nkj-keys {
++        compatible = "gpio-keys";
++		#address-cells = <1>;
++		#size-cells = <0>;
++        autorepeat;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&n_keys>;
++
++		//���� ��
++		down {
++			label = "GPIO Key down";
++			linux,code = <KEY_DOWN>;
++			gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_LOW>;
++			debounce-interval = <20>;
++			gpio-key,wakeup;			
++		};
++
++		
++		//�˵� ok
++		menu {
++			label = "GPIO Key menu";
++			linux,code = <KEY_MINUS>;
++			gpios = <&gpio0 RK_PD0 GPIO_ACTIVE_LOW>;
++			debounce-interval = <20>;
++			gpio-key,wakeup;
++		};
++		
++		//����
++		return {
++			label = "GPIO Key return";
++			linux,code = <KEY_SPACE>;
++			gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_LOW>;
++			debounce-interval = <20>;
++			gpio-key,wakeup;
++		};
++		
++		//¼�� ��
++		up {
++			label = "GPIO Key up";
++			linux,code = <KEY_UP>;
++			gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
++			debounce-interval = <20>;
++			gpio-key,wakeup;
++		};
++		
++		//led
++		led {
++			label = "GPIO Key led";
++			linux,code = <KEY_F3>;
++			gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
++			debounce-interval = <20>;
++			gpio-key,wakeup;
++		};
++		
++	};
++	
++	pwm-leds {
++		status = "okay";
++		compatible = "pwm-leds";
++		front {
++			active-low;
++			label = "nkj_led";
++			max-brightness = <255>;
++			pwms = <&pwm4 0 1000000 1>;
++		};
++	};
+ };
++
++
++
++
++&pwm4 {
++	status = "okay";
++	pinctrl-0 = <&pwm4m0_pins>;
++};
++
++
++&rkispp0 {
++	status = "okay";
++};
++
++&fec0_mmu {
++	status = "okay";
++};
++&rkispp1 {
++	status = "okay";
++};
++&fec1_mmu {
++	status = "okay";
++};
++
++
++&pinctrl {
++	buttons {
++		n_keys: n-keys {
++			rockchip,pins =
++				<4 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>,
++				<0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_up>,
++				<0 RK_PC7 RK_FUNC_GPIO &pcfg_pull_up>,
++				<1 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
++				<1 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
++		};		
++	};
++};
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-ov9734.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-ov9734.dtsi
+new file mode 100755
+index 000000000000..c2ebc95f7e22
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11-ov9734.dtsi
+@@ -0,0 +1,193 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++/ {
++	
++	//红外滤光片（IRCUT）由两根线控制，对这两根线施加3.5v~6v的电源，通过对IRCUT供电电源的正负极对调，且满足通电时间100ms±10%，能够实现IRCUT的切换。驱动通过两个gpio控制电机驱动器的电流输出方向，gpio命令为open（红线）、close（黑线）。电流由open流向close，为红外截止滤光片，白天工作状态；电流由close流向open，为白玻璃片，夜晚工作状态。其配置如下：
++	cam_ircut0: cam_ircut {
++		status = "okay";
++		compatible = "rockchip,ircut";
++		//ircut-open-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
++		//ircut-close-gpios  = <&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>;
++		rockchip,camera-module-index = <0>;
++		rockchip,camera-module-facing = "back";
++	};
++};
++
++//这里使用的是csi2_dcphy0
++&csi2_dcphy0 {
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		port@0 {
++			reg = <0>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mipi_in_ucam0: endpoint@1 {
++				reg = <1>;
++				//sensor端的port名
++				remote-endpoint = <&ov9734_out0>;
++				//mipi lane数，1lane为<1>,4lane为<1 2 3 4>，这里配置的是4lane，这个必须要配置否则会无法识别mipi类型
++				data-lanes = <1>;
++			};
++		};
++		port@1 {
++			reg = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			csidcphy0_out: endpoint@0 {
++				reg = <0>;
++				//mipi0_csi2_input是对应的isp端的port名
++				remote-endpoint = <&mipi0_csi2_input>;
++			};
++		};
++	};
++};
++
++&i2c7 {
++	status = "okay";
++	clock-frequency = <400000>;
++    pinctrl-names = "default";
++	pinctrl-0 = <&i2c7m0_xfer>;	
++	
++
++	ov9734: ov9734@36 {
++		compatible = "ovti,ov9734";		//需要与驱动定义的字符串一致
++		reg = <0x36>;		//sensor的I2C设备地址，7位
++		status = "okay";
++		
++		clocks = <&cru CLK_MIPI_CAMARAOUT_M2>;//sensor clockin配置
++		clock-names = "xvclk";
++		pinctrl-names = "default";
++		pinctrl-0 = <&mipim0_camera2_clk>;
++		//电源配置
++		power-domains = <&power RK3588_PD_VI>;
++		
++		//power管脚配置
++		//pwdn-gpios = <&gpio1 RK_PA0 GPIO_ACTIVE_HIGH>;	
++		//reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;		
++		//avdd-supply = <&vcc_mipidcphy0>;
++		//dovdd-supply = <&vcc_mipidcphy0_dovdd>;
++		
++		//模组编号，该编号不要重复
++		rockchip,camera-module-index = <1>;
++		//模组朝向，有前摄“front”、后摄“back”
++		rockchip,camera-module-facing = "back";
++		//模组名称
++		rockchip,camera-module-name = "Sigma9734";
++		//IR CUT设备
++		rockchip,camera-module-lens-name = "ov9734";
++
++		//rockchip,camera-module-index-oh01a10 = <2>;
++		rockchip,camera-module-facing-oh01a10 = "back";
++		rockchip,camera-module-name-oh01a10 = "Nkjoh01a10";
++		rockchip,camera-module-lens-name-oh01a10 = "oh01a10";
++		
++		//lens-focus = <&cam_ircut0>;
++		port {
++			ov9734_out0: endpoint {
++			//mipi dphy端的port名
++				remote-endpoint = <&mipi_in_ucam0>;
++				//mipi lane数，1lane为<1>,4lane为<1 2 3 4>，这里配置的是4lane，这个必须要配置否则会无法识别mipi类型
++				data-lanes = <1>;
++			};
++		};
++	};
++};
++
++&mipi_dcphy0 {
++	status = "okay";
++};
++
++&mipi0_csi2 {
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mipi0_csi2_input: endpoint@1 {
++				reg = <1>;
++				//csi2 dphy端的port名
++				remote-endpoint = <&csidcphy0_out>;
++			};
++		};
++
++		port@1 {
++			reg = <1>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mipi0_csi2_output: endpoint@0 {
++				reg = <0>;
++				//vicap端的port名
++				remote-endpoint = <&cif_mipi_in0>;
++			};
++		};
++	};
++};
++//vicap的配置，这里用rkcif节点代表vicap
++&rkcif {
++	status = "okay";
++};
++
++&rkcif_mipi_lvds {
++	status = "okay";
++
++	port {
++		cif_mipi_in0: endpoint {
++		//csi2 host端的port名
++			remote-endpoint = <&mipi0_csi2_output>;
++		};
++	};
++};
++
++&rkcif_mipi_lvds_sditf {
++	status = "okay";
++
++	port {
++		mipi_lvds_sditf: endpoint {
++		//isp虚拟设备端port名
++			remote-endpoint = <&isp0_vir0>;
++		};
++	};
++};
++
++&rkcif_mmu {
++	status = "okay";
++};
++
++&rkisp0 {
++	status = "okay";
++};
++
++&isp0_mmu {
++	status = "okay";
++};
++
++&rkisp0_vir0 {
++	status = "okay";
++
++	port {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		isp0_vir0: endpoint@0 {
++			reg = <0>;
++			//vicap mipi sditf的端点名
++			remote-endpoint = <&mipi_lvds_sditf>;
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index 98f38c8a7d08..abfc62847650 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -29,13 +29,13 @@ es8388_sound: es8388-sound {
+ 		status = "okay";
+ 		compatible = "rockchip,multicodecs-card";
+ 		rockchip,card-name = "rockchip-es8388";
+-		hp-det-gpio = <&gpio1 RK_PC4 GPIO_ACTIVE_LOW>;
++		//hp-det-gpio = <&gpio0 RK_PC4 GPIO_ACTIVE_LOW>;
+ 		io-channels = <&saradc 3>;
+ 		io-channel-names = "adc-detect";
+ 		keyup-threshold-microvolt = <1800000>;
+ 		poll-interval = <100>;
+-		spk-con-gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+-		hp-con-gpio = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
++		//spk-con-gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
++		hp-con-gpio = <&gpio1 RK_PC6 GPIO_ACTIVE_HIGH>;
+ 		rockchip,pre-power-on-delay-ms = <30>;
+ 		rockchip,post-power-down-delay-ms = <40>;
+ 		rockchip,format = "i2s";
+@@ -55,8 +55,8 @@ es8388_sound: es8388-sound {
+ 			"LINPUT2", "Main Mic",
+ 			"RINPUT1", "Headset Mic",
+ 			"RINPUT2", "Headset Mic";
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&hp_det>;
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&hp_det>;
+ 		play-pause-key {
+ 			label = "playpause";
+ 			linux,code = <KEY_PLAYPAUSE>;
+@@ -134,8 +134,8 @@ sdio_pwrseq: sdio-pwrseq {
+ 		compatible = "mmc-pwrseq-simple";
+ 		clocks = <&hym8563>;
+ 		clock-names = "ext_clock";
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&wifi_enable_h>;
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&wifi_enable_h>;
+ 		/*
+ 		 * On the module itself this is one of these (depending
+ 		 * on the actual card populated):
+@@ -143,7 +143,7 @@ sdio_pwrseq: sdio-pwrseq {
+ 		 * - PDN (power down when low)
+ 		 */
+ 		post-power-on-delay-ms = <200>;
+-		reset-gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_LOW>;
++		//reset-gpios = <&gpio0 RK_PC4 GPIO_ACTIVE_LOW>;
+ 	};
+ 
+ 	rk_headset: rk-headset {
+@@ -172,20 +172,13 @@ vbus5v0_typec: vbus5v0-typec {
+ 		regulator-min-microvolt = <5000000>;
+ 		regulator-max-microvolt = <5000000>;
+ 		enable-active-high;
+-		gpio = <&gpio3 RK_PA6 GPIO_ACTIVE_HIGH>;
++		gpio = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+ 		vin-supply = <&vcc5v0_usb>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&typec5v_pwren>;
+ 	};
+ 
+-	vcc3v3_lcd_n: vcc3v3-lcd0-n {
+-		compatible = "regulator-fixed";
+-		regulator-name = "vcc3v3_lcd0_n";
+-		regulator-boot-on;
+-		enable-active-high;
+-		gpio = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
+-		vin-supply = <&vcc_1v8_s0>;
+-	};
++
+ 
+ 	vcc3v3_pcie30: vcc3v3-pcie30 {
+ 		compatible = "regulator-fixed";
+@@ -193,7 +186,9 @@ vcc3v3_pcie30: vcc3v3-pcie30 {
+ 		regulator-min-microvolt = <3300000>;
+ 		regulator-max-microvolt = <3300000>;
+ 		enable-active-high;
+-		gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
++		//gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&wifi_poweren_gpio>;
+ 		startup-delay-us = <5000>;
+ 		vin-supply = <&vcc12v_dcin>;
+ 	};
+@@ -206,42 +201,48 @@ vcc5v0_host: vcc5v0-host {
+ 		regulator-min-microvolt = <5000000>;
+ 		regulator-max-microvolt = <5000000>;
+ 		enable-active-high;
+-		gpio = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
++		//gpio = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
+ 		vin-supply = <&vcc5v0_usb>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&vcc5v0_host_en>;
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&vcc5v0_host_en>;
+ 	};
+ 
+ 	vcc_mipicsi0: vcc-mipicsi0-regulator {
+ 		compatible = "regulator-fixed";
+-		gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&mipicsi0_pwr>;
++		//gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&mipicsi0_pwr>;
+ 		regulator-name = "vcc_mipicsi0";
+ 		enable-active-high;
+ 	};
+ 
+ 	vcc_mipicsi1: vcc-mipicsi1-regulator {
+ 		compatible = "regulator-fixed";
+-		gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&mipicsi1_pwr>;
++		//gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&mipicsi1_pwr>;
+ 		regulator-name = "vcc_mipicsi1";
+ 		enable-active-high;
+ 	};
+ 
+ 	vcc_mipidcphy0: vcc-mipidcphy0-regulator {
+ 		compatible = "regulator-fixed";
+-		gpio = <&gpio2 RK_PC4 GPIO_ACTIVE_HIGH>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&mipidcphy0_pwr>;
+ 		regulator-name = "vcc_mipidcphy0";
++		regulator-boot-on;
++		regulator-always-on;
++		regulator-min-microvolt = <2800000>;
++		regulator-max-microvolt = <2800000>;
+ 		enable-active-high;
++		gpio = <&gpio1 RK_PD7 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&mipidcphy0_pwr>;
++		vin-supply = <&vcc12v_dcin>;
+ 	};
+ 
+ 	vcc_3v3_sd_s0: vcc-3v3-sd-s0-regulator {
+ 		compatible = "regulator-fixed";
+-		gpio = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>;
++		//gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
++		gpio = <&gpio1 RK_PD2 GPIO_ACTIVE_LOW>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&sd_s0_pwr>;
+ 		regulator-name = "vcc_3v3_sd_s0";
+@@ -256,27 +257,23 @@ wireless_bluetooth: wireless-bluetooth {
+ 		pinctrl-names = "default", "rts_gpio";
+ 		pinctrl-0 = <&uart9m0_rtsn>, <&bt_reset_gpio>, <&bt_wake_gpio>, <&bt_irq_gpio>;
+ 		pinctrl-1 = <&uart9_gpios>;
+-		BT,reset_gpio    = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
+-		BT,wake_gpio     = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+-		BT,wake_host_irq = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
++		BT,reset_gpio    = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
++		BT,wake_gpio     = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
++		BT,wake_host_irq = <&gpio1 RK_PB1 GPIO_ACTIVE_HIGH>;
+ 		status = "okay";
+ 	};
+ 
+ 	wireless_wlan: wireless-wlan {
+ 		compatible = "wlan-platdata";
+-		wifi_chip_type = "ap6398s";
++		wifi_chip_type = "ap6275p";
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wifi_host_wake_irq>;
+-		WIFI,host_wake_irq = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+-		WIFI,poweren_gpio = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
++		WIFI,host_wake_irq = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;
++		WIFI,poweren_gpio = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+ 		status = "okay";
+ 	};
+ };
+ 
+-&backlight {
+-	pwms = <&pwm1 0 25000 0>;
+-	status = "okay";
+-};
+ 
+ &combphy0_ps {
+ 	status = "okay";
+@@ -291,84 +288,35 @@ &combphy2_psu {
+ };
+ 
+ &dp0 {
+-	status = "okay";
++	status = "disabled";
+ };
+ &dp0_in_vp2 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &dp0_sound{
+-	status = "okay";
++	status = "disabled";
+ };
+ &dp1 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&dp1m0_pins>;
+-	status = "okay";
+-};
+-
+-&dp1_in_vp2 {
+-	status = "okay";
+-};
+-
+-/*
+- * mipi_dcphy0 needs to be enabled
+- * when dsi0 is enabled
+- */
+-&dsi0 {
+-	status = "okay";
+-};
+-
+-&dsi0_in_vp2 {
+-	status = "disabled";
+-};
+-
+-&dsi0_in_vp3 {
+-	status = "okay";
+-};
+-
+-&dsi0_panel {
+-	power-supply = <&vcc3v3_lcd_n>;
+-	reset-gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&lcd_rst_gpio>;
+-};
+-
+-/*
+- * mipi_dcphy1 needs to be enabled
+- * when dsi1 is enabled
+- */
+-&dsi1 {
+-	status = "disabled";
+-};
+-
+-&dsi1_in_vp2 {
+ 	status = "disabled";
+ };
+ 
+-&dsi1_in_vp3 {
++&dp1_in_vp2 {
+ 	status = "disabled";
+ };
+ 
+-&dsi1_panel {
+-	power-supply = <&vcc3v3_lcd_n>;
+ 
+-	/*
+-	 * because in hardware, the two screens share the reset pin,
+-	 * so reset-gpios need only in dsi1 enable and dsi0 disabled
+-	 * case.
+-	 */
+ 
+-	//reset-gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
+-	//pinctrl-names = "default";
+-	//pinctrl-0 = <&lcd_rst_gpio>;
+-};
+ 
+ &gmac1 {
+ 	/* Use rgmii-rxid mode to disable rx delay inside Soc */
+-	phy-mode = "rgmii-rxid";
++	//phy-mode = "rgmii-rxid";
++	phy-mode = "rgmii";
+ 	clock_in_out = "output";
+ 
+-	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
++	snps,reset-gpio = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
+ 	snps,reset-active-low;
+ 	/* Reset time is 20ms, 100ms for rtl8211f */
+ 	snps,reset-delays-us = <0 20000 100000>;
+@@ -378,17 +326,25 @@ &gmac1 {
+ 		     &gmac1_tx_bus2
+ 		     &gmac1_rx_bus2
+ 		     &gmac1_rgmii_clk
+-		     &gmac1_rgmii_bus>;
++		     &gmac1_rgmii_bus
++			 &gmac1_clkinout>;
+ 
+-	tx_delay = <0x43>;
+-	/* rx_delay = <0x3f>; */
++	tx_delay = <0x3a>;
++	rx_delay = <0x2a>;
+ 
+-	phy-handle = <&rgmii_phy>;
++	phy-handle = <&rgmii_phy1>;
+ 	status = "okay";
+ };
+ 
++&mdio1 {
++	rgmii_phy1: phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0x1>;
++	};
++};
++
+ &hdmi0 {
+-	enable-gpios = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
++	enable-gpios = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+ 	status = "okay";
+ };
+ 
+@@ -402,27 +358,27 @@ &hdmi0_sound {
+ 
+ &hdmi1 {
+ 	enable-gpios = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &hdmi1_in_vp1 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &hdmi1_sound {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ /* Should work with at least 128MB cma reserved above. */
+ &hdmirx_ctrler {
+-	status = "okay";
++	status = "disabled";
+ 
+ 	#sound-dai-cells = <1>;
+ 	/* Effective level used to trigger HPD: 0-low, 1-high */
+ 	hpd-trigger-level = <1>;
+-	hdmirx-det-gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_LOW>;
++	hdmirx-det-gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>;
+ 	pinctrl-names = "default";
+-	pinctrl-0 = <&hdmim1_rx &hdmirx_det>;
++	pinctrl-0 = <&hdmim1_rx_cec &hdmim2_rx_scl &hdmim2_rx_sda &hdmim0_rx_hpdin &hdmirx_det>;
+ };
+ 
+ &hdptxphy_hdmi0 {
+@@ -430,7 +386,7 @@ &hdptxphy_hdmi0 {
+ };
+ 
+ &hdptxphy_hdmi1 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &i2c0 {
+@@ -441,7 +397,8 @@ &i2c0 {
+ 	vdd_cpu_big0_s0: vdd_cpu_big0_mem_s0: rk8602@42 {
+ 		compatible = "rockchip,rk8602";
+ 		reg = <0x42>;
+-		vin-supply = <&vcc5v0_sys>;
++		vin-supply = <&vcc4v0_sys>;
++		vsel-gpios = <&gpio0 RK_PA3 GPIO_ACTIVE_HIGH>;
+ 		regulator-compatible = "rk860x-reg";
+ 		regulator-name = "vdd_cpu_big0_s0";
+ 		regulator-min-microvolt = <550000>;
+@@ -458,7 +415,8 @@ regulator-state-mem {
+ 	vdd_cpu_big1_s0: vdd_cpu_big1_mem_s0: rk8603@43 {
+ 		compatible = "rockchip,rk8603";
+ 		reg = <0x43>;
+-		vin-supply = <&vcc5v0_sys>;
++		vin-supply = <&vcc4v0_sys>;
++		vsel-gpios = <&gpio0 RK_PD6 GPIO_ACTIVE_HIGH>;
+ 		regulator-compatible = "rk860x-reg";
+ 		regulator-name = "vdd_cpu_big1_s0";
+ 		regulator-min-microvolt = <550000>;
+@@ -481,7 +439,8 @@ &i2c1 {
+ 	vdd_npu_s0: vdd_npu_mem_s0: rk8602@42 {
+ 		compatible = "rockchip,rk8602";
+ 		reg = <0x42>;
+-		vin-supply = <&vcc5v0_sys>;
++		vin-supply = <&vcc4v0_sys>;
++		vsel-gpios = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+ 		regulator-compatible = "rk860x-reg";
+ 		regulator-name = "vdd_npu_s0";
+ 		regulator-min-microvolt = <550000>;
+@@ -498,80 +457,59 @@ regulator-state-mem {
+ 
+ &i2c4 {
+ 	status = "okay";
++	pinctrl-names = "default";
+ 	pinctrl-0 = <&i2c4m1_xfer>;
+ 
+-	ls_stk3332: light@47 {
+-		compatible = "ls_stk3332";
+-		status = "disabled";
+-		reg = <0x47>;
+-		type = <SENSOR_TYPE_LIGHT>;
+-		irq_enable = <0>;
+-		als_threshold_high = <100>;
+-		als_threshold_low = <10>;
+-		als_ctrl_gain = <2>; /* 0:x1 1:x4 2:x16 3:x64 */
+-		poll_delay_ms = <100>;
+-	};
+-
+-	ps_stk3332: proximity@47 {
+-		compatible = "ps_stk3332";
+-		status = "disabled";
+-		reg = <0x47>;
+-		type = <SENSOR_TYPE_PROXIMITY>;
+-		//pinctrl-names = "default";
+-		//pinctrl-0 = <&gpio3_c6>;
+-		//irq-gpio = <&gpio3 RK_PC6 IRQ_TYPE_LEVEL_LOW>;
+-		//irq_enable = <1>;
+-		ps_threshold_high = <0x200>;
+-		ps_threshold_low = <0x100>;
+-		ps_ctrl_gain = <3>; /* 0:x1 1:x2 2:x5 3:x8 */
+-		ps_led_current = <4>; /* 0:3.125mA 1:6.25mA 2:12.5mA 3:25mA 4:50mA 5:100mA*/
+-		poll_delay_ms = <100>;
+-	};
+-
+-	icm42607_acc: icm_acc@68 {
++	hym8563: hym8563@51 {
+ 		status = "okay";
+-		compatible = "icm42607_acc";
+-		reg = <0x68>;
+-		irq-gpio = <&gpio4 RK_PC2 IRQ_TYPE_EDGE_RISING>;
+-		irq_enable = <0>;
+-		poll_delay_ms = <30>;
+-		type = <SENSOR_TYPE_ACCEL>;
+-		layout = <0>;
+-	};
+-
+-	icm42607_gyro: icm_gyro@68 {
++		compatible = "haoyu,hym8563";
++		reg = <0x51>;
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		clock-output-names = "hym8563";
++		//pinctrl-names = "default";
++		//pinctrl-0 = <&hym8563_int>;
++		//interrupt-parent = <&gpio0>;
++		//interrupts = <RK_PB0 IRQ_TYPE_LEVEL_LOW>;
++		wakeup-source;
++	};	
++	cw2017@63 {
+ 		status = "okay";
+-		compatible = "icm42607_gyro";
+-		reg = <0x68>;
+-		poll_delay_ms = <30>;
+-		type = <SENSOR_TYPE_GYROSCOPE>;
+-		layout = <0>;
+-	};
+-};
+-
+-&i2c5 {
+-	status = "okay";
+-	gt1x: gt1x@14 {
+-		compatible = "goodix,gt1x";
+-		reg = <0x14>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&touch_gpio>;
+-		goodix,rst-gpio = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+-		goodix,irq-gpio = <&gpio3 RK_PC0 IRQ_TYPE_LEVEL_LOW>;
+-		power-supply = <&vcc3v3_lcd_n>;
+-	};
+-};
+-
+-&i2c6 {
+-	status = "okay";
+-
+-	usbc0: husb311@4e {
+-		compatible = "hynetek,husb311";
+-		reg = <0x4e>;
++		compatible = "cellwise,cw2017";
++		reg = <0x63>;
++
++		// ���������Ϣ
++
++		cellwise,battery-profile = /bits/ 8
++			<0x5A 0x04 0x51 0x00 0xCD 0x00 0x00 0x00
++			 0xA0 0xCA 0xD6 0xCC 0xC5 0xCB 0xB1 0x62
++			 0x36 0xF2 0xE1 0xD1 0xA3 0x85 0x71 0x5F
++			 0x51 0x43 0x33 0x4E 0xC7 0xDC 0x62 0xE7
++			 0xD5 0xD2 0xD3 0xD1 0xCF 0xC9 0xCD 0xCA
++			 0xBB 0xBF 0xC4 0xA6 0x93 0x87 0x7C 0x6C
++			 0x5A 0x58 0x74 0x8E 0xA7 0x87 0x68 0x73
++			 0x00 0x00 0x90 0x01 0x00 0x00 0x00 0x00
++			 0x00 0x00 0x64 0x00 0x00 0x00 0x00 0x00
++			 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xA7>;
++
++			 
++		cellwise,dual-cell;		//˫���
++		cellwise,monitor-interval-ms = <5000>;  //�����������ӳٹ������ӳ�ʱ�䣨ms����
++		cellwise,alert-level = <5>;		//10	//ָ����soc������ֵ��
++		cellwise,design-capacity-amh = <6800>;	//����������
++
++	};
++	
++
++	usbc0: fusb302@22 {
++		compatible = "fcs,fusb302";
++		reg = <0x22>;
++		
+ 		interrupt-parent = <&gpio3>;
+-		interrupts = <RK_PB6 IRQ_TYPE_LEVEL_LOW>;
++		interrupts = <RK_PD4 IRQ_TYPE_LEVEL_LOW>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&usbc0_int>;
++		
+ 		vbus-supply = <&vbus5v0_typec>;
+ 		status = "okay";
+ 
+@@ -631,22 +569,15 @@ dp_altmode_mux: endpoint {
+ 		};
+ 	};
+ 
+-	hym8563: hym8563@51 {
+-		compatible = "haoyu,hym8563";
+-		reg = <0x51>;
+-		#clock-cells = <0>;
+-		clock-frequency = <32768>;
+-		clock-output-names = "hym8563";
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&hym8563_int>;
+-		interrupt-parent = <&gpio0>;
+-		interrupts = <RK_PB0 IRQ_TYPE_LEVEL_LOW>;
+-		wakeup-source;
+-	};
++
+ };
+ 
+ &i2c7 {
+ 	status = "okay";
++	clock-frequency = <400000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c7m0_xfer>;
++	
+ 	es8388: es8388@11 {
+ 		status = "okay";
+ 		#sound-dai-cells = <0>;
+@@ -673,12 +604,7 @@ &i2s7_8ch {
+ 	status = "okay";
+ };
+ 
+-&mdio1 {
+-	rgmii_phy: phy@1 {
+-		compatible = "ethernet-phy-ieee802.3-c22";
+-		reg = <0x1>;
+-	};
+-};
++
+ 
+ &mipi_dcphy0 {
+ 	status = "okay";
+@@ -689,13 +615,16 @@ &mipi_dcphy1 {
+ };
+ 
+ &pcie2x1l0 {
+-	reset-gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
++	rockchip,skip-scan-in-resume;
++	//rockchip,perst-inactive-ms = <500>;
++	vpcie3v3-supply = <&vcc3v3_pcie30>;
+ 	status = "okay";
+ };
+ 
+ &pcie30phy {
+ 	rockchip,pcie30-phymode = <PHY_MODE_PCIE_AGGREGATION>;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &pcie3x4 {
+@@ -703,92 +632,86 @@ &pcie3x4 {
+ 	vpcie3v3-supply = <&vcc3v3_pcie30>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pcie20x1_0_clkreqn_m1>;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &pinctrl {
+ 	cam {
++#if 0
+ 		mipicsi0_pwr: mipicsi0-pwr {
+ 			rockchip,pins =
+ 				/* camera power en */
+ 				<1 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
++#endif
++#if 0
+ 		mipicsi1_pwr: mipicsi1-pwr {
+ 			rockchip,pins =
+ 				/* camera power en */
+ 				<1 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
++#endif
+ 		mipidcphy0_pwr: mipidcphy0-pwr {
+ 			rockchip,pins =
+ 				/* camera power en */
+-				<2 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
++				<1 RK_PD7 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
+ 
+ 
+ 	hdmi {
+ 		hdmirx_det: hdmirx-det {
+-			rockchip,pins = <1 RK_PD5 RK_FUNC_GPIO &pcfg_pull_up>;
++			rockchip,pins = <1 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+ 
+ 	headphone {
+ 		hp_det: hp-det {
+-			rockchip,pins = <1 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <0 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
+-
++#if 0
+ 	hym8563 {
+ 		hym8563_int: hym8563-int {
+ 			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+-
+-	lcd {
+-		lcd_rst_gpio: lcd-rst-gpio {
+-			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+-		};
+-	};
+-
++#endif
++#if 0
+ 	leds {
+ 		work_leds_gpio: work-leds-gpio {
+ 			rockchip,pins = <1 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
+ 		};
+ 	};
+-
++#endif
++#if 0
+ 	sdio-pwrseq {
+ 		wifi_enable_h: wifi-enable-h {
+ 			rockchip,pins = <0 RK_PC4 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+-
++#endif
+ 	sdmmc {
+ 		sd_s0_pwr: sd-s0-pwr {
+-			rockchip,pins = <0 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>;
+-		};
+-	};
+-
+-	touch {
+-		touch_gpio: touch-gpio {
+-			rockchip,pins =
+-				<3 RK_PC1 RK_FUNC_GPIO &pcfg_pull_down>,
+-				<3 RK_PC0 RK_FUNC_GPIO &pcfg_pull_up>;
++			/* rockchip,pins = <1 RK_PD2 RK_FUNC_GPIO &pcfg_pull_up>; */
++			rockchip,pins = <1 RK_PD2 RK_FUNC_GPIO &pcfg_pull_down>;
+ 		};
+ 	};
+-
++#if 0
+ 	usb {
+ 		vcc5v0_host_en: vcc5v0-host-en {
+-			rockchip,pins = <4 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <2 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
++#endif
++	
+ 
+ 	usb-typec {
+ 		usbc0_int: usbc0-int {
+-			rockchip,pins = <3 RK_PB6 RK_FUNC_GPIO &pcfg_pull_up>;
++			rockchip,pins = <3 RK_PD4 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+-
+ 		typec5v_pwren: typec5v-pwren {
+-			rockchip,pins = <3 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
+ 
+@@ -798,21 +721,24 @@ uart9_gpios: uart9-gpios {
+ 		};
+ 
+ 		bt_reset_gpio: bt-reset-gpio {
+-			rockchip,pins = <0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 
+ 		bt_wake_gpio: bt-wake-gpio {
+-			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <1 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 
+ 		bt_irq_gpio: bt-irq-gpio {
+-			rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
++			rockchip,pins = <1 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
+ 
+ 	wireless-wlan {
+ 		wifi_host_wake_irq: wifi-host-wake-irq {
+-			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_down>;
++			rockchip,pins = <0 RK_PB0 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++		wifi_poweren_gpio: wifi-poweren-gpio {
++			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
+ 
+@@ -825,6 +751,7 @@ pcie20x1_0_clkreqn_m1: pcie20x1-0-clkreqn-m1 {
+ 
+ &pwm1 {
+ 	status = "okay";
++	pinctrl-0 = <&pwm1m0_pins>;
+ };
+ 
+ &pwm3 {
+@@ -832,6 +759,11 @@ &pwm3 {
+ 	status = "okay";
+ };
+ 
++
++&pwm5 {
++	pinctrl-0 = <&pwm5m1_pins>;
++	status = "okay";
++};
+ &route_dsi0 {
+ 	status = "okay";
+ 	connect = <&vp3_out_dsi0>;
+@@ -847,11 +779,11 @@ &route_hdmi0 {
+ };
+ 
+ &route_hdmi1 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &sata0 {
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &sdio {
+@@ -868,7 +800,7 @@ &sdio {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&sdiom0_pins>;
+ 	sd-uhs-sdr104;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &sdmmc {
+@@ -899,10 +831,12 @@ &u2phy3_host {
+ };
+ 
+ &usbdp_phy0 {
++	status = "okay";
++
+ 	orientation-switch;
+ 	svid = <0xff01>;
+-	sbu1-dc-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_HIGH>;
+-	sbu2-dc-gpios = <&gpio4 RK_PA1 GPIO_ACTIVE_HIGH>;
++	//sbu1-dc-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
++	//sbu2-dc-gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+ 
+ 	port {
+ 		#address-cells = <1>;
+@@ -923,7 +857,10 @@ &usbdp_phy1 {
+ 	rockchip,dp-lane-mux = <0 1 2 3>;
+ };
+ 
++
+ &usbdrd_dwc3_0 {
++	status = "okay";
++	extcon = <&u2phy0>;
+ 	dr_mode = "otg";
+ 	usb-role-switch;
+ 	port {
+@@ -943,9 +880,10 @@ &usbhost3_0 {
+ &usbhost_dwc3_0 {
+ 	status = "disabled";
+ };
+-
++#if 0
+ &work_led {
+ 	gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_HIGH>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&work_leds_gpio>;
+ };
++#endif
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-rk806-single.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-rk806-single.dtsi
+index 0d42fef5cded..f30a9d489fd0 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-rk806-single.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-rk806-single.dtsi
+@@ -44,21 +44,21 @@ rk806single: rk806single@0 {
+ 		 */
+ 		pmic-reset-func = <1>;
+ 
+-		vcc1-supply = <&vcc5v0_sys>;
+-		vcc2-supply = <&vcc5v0_sys>;
+-		vcc3-supply = <&vcc5v0_sys>;
+-		vcc4-supply = <&vcc5v0_sys>;
+-		vcc5-supply = <&vcc5v0_sys>;
+-		vcc6-supply = <&vcc5v0_sys>;
+-		vcc7-supply = <&vcc5v0_sys>;
+-		vcc8-supply = <&vcc5v0_sys>;
+-		vcc9-supply = <&vcc5v0_sys>;
+-		vcc10-supply = <&vcc5v0_sys>;
++		vcc1-supply = <&vcc4v0_sys>;
++		vcc2-supply = <&vcc4v0_sys>;
++		vcc3-supply = <&vcc4v0_sys>;
++		vcc4-supply = <&vcc4v0_sys>;
++		vcc5-supply = <&vcc4v0_sys>;
++		vcc6-supply = <&vcc4v0_sys>;
++		vcc7-supply = <&vcc4v0_sys>;
++		vcc8-supply = <&vcc4v0_sys>;
++		vcc9-supply = <&vcc4v0_sys>;
++		vcc10-supply = <&vcc4v0_sys>;
+ 		vcc11-supply = <&vcc_2v0_pldo_s3>;
+-		vcc12-supply = <&vcc5v0_sys>;
++		vcc12-supply = <&vcc4v0_sys>;
+ 		vcc13-supply = <&vcc_1v1_nldo_s3>;
+ 		vcc14-supply = <&vcc_1v1_nldo_s3>;
+-		vcca-supply = <&vcc5v0_sys>;
++		vcca-supply = <&vcc4v0_sys>;
+ 
+ 		pwrkey {
+ 			status = "okay";
+diff --git a/arch/arm64/boot/dts/rockchip/zd-g1548fh131gg-1920-1080-mipi.dtsi b/arch/arm64/boot/dts/rockchip/zd-g1548fh131gg-1920-1080-mipi.dtsi
+new file mode 100755
+index 000000000000..6d6676d57c08
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/zd-g1548fh131gg-1920-1080-mipi.dtsi
+@@ -0,0 +1,641 @@
++
++/ {
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		brightness-levels = <
++			  0  20  20  21  21  22  22  23
++			 23  24  24  25  25  26  26  27
++			 27  28  28  29  29  30  30  31
++			 31  32  32  33  33  34  34  35
++			 35  36  36  37  37  38  38  39
++			 40  41  42  43  44  45  46  47
++			 48  49  50  51  52  53  54  55
++			 56  57  58  59  60  61  62  63
++			 64  65  66  67  68  69  70  71
++			 72  73  74  75  76  77  78  79
++			 80  81  82  83  84  85  86  87
++			 88  89  90  91  92  93  94  95
++			 96  97  98  99 100 101 102 103
++			104 105 106 107 108 109 110 111
++			112 113 114 115 116 117 118 119
++			120 121 122 123 124 125 126 127
++			128 129 130 131 132 133 134 135
++			136 137 138 139 140 141 142 143
++			144 145 146 147 148 149 150 151
++			152 153 154 155 156 157 158 159
++			160 161 162 163 164 165 166 167
++			168 169 170 171 172 173 174 175
++			176 177 178 179 180 181 182 183
++			184 185 186 187 188 189 190 191
++			192 193 194 195 196 197 198 199
++			200 201 202 203 204 205 206 207
++			208 209 210 211 212 213 214 215
++			216 217 218 219 220 221 222 223
++			224 225 226 227 228 229 230 231
++			232 233 234 235 236 237 238 239
++			240 241 242 243 244 245 246 247
++			248 249 250 251 252 253 254 255
++		>;
++		default-brightness-level = <200>;
++	};
++
++	vcc3v3_lcd_n: vcc3v3-lcd0-n {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3_lcd0_n";
++		regulator-boot-on;
++		enable-active-high;
++		gpio = <&gpio2 RK_PB6 GPIO_ACTIVE_HIGH>;
++		vin-supply = <&vcc_1v8_s0>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_lcd_en>;
++	};
++	
++	vcc3v3_lcd_vci: vcc3v3-lcd-vci {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3_lcd_vci";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_lcd_vci_en>;
++	};
++
++	vcc1v8_lcd_vddio: vcc1v8-lcd-vddio {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc1v8_lcd_vddio";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio1 RK_PB3 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc1v8_lcd_vddio_en>;
++	};	
++	vcc3v3_touch_avdd: vcc3v3-touch-avdd {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3_touch_avdd";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_touch_avdd_en>;
++	};
++
++};
++
++&backlight {
++	//pwms = <&pwm1 0 25000 0>;
++	status = "disabled";
++};
++
++
++&dsi0 {
++	status = "okay";
++	//rockchip,lane-rate = <1000>;
++	
++	dsi0_panel: panel@0 {
++		status = "okay";
++		compatible = "simple-panel-dsi";
++		reg = <0>;
++		//backlight = <&backlight>;
++		
++		//reset-delay-ms = <15>;
++		reset-delay-ms = <50>;
++		enable-delay-ms = <10>;
++		prepare-delay-ms = <10>;
++		unprepare-delay-ms = <10>;
++		disable-delay-ms = <60>;
++		width-mm = <1920>;
++		height-mm = <1080>;
++		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++		dsi,format = <MIPI_DSI_FMT_RGB888>;
++		dsi,lanes  = <4>;
++
++		panel-init-sequence = [
++			23 78 02 35 00
++			05 78 01 11
++			05 00 01 29
++		];
++
++		panel-exit-sequence = [
++			05 00 01 28
++			05 00 01 10
++		];
++
++		disp_timings0: display-timings {
++			native-mode = <&dsi0_timing0>;
++			dsi0_timing0: timing0 {
++				clock-frequency = <132000000>;
++				hactive = <1080>;
++				vactive = <1920>;
++				hfront-porch = <15>;
++				hsync-len = <4>;
++				hback-porch = <30>;
++				vfront-porch = <15>;
++				vsync-len = <2>;
++				vback-porch = <15>;
++				hsync-active = <0>;
++				vsync-active = <0>;
++				de-active = <0>;
++				pixelclk-active = <0>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				panel_in_dsi: endpoint {
++					remote-endpoint = <&dsi_out_panel>;
++				};
++			};
++		};
++	};
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@1 {
++			reg = <1>;
++			dsi_out_panel: endpoint {
++				remote-endpoint = <&panel_in_dsi>;
++			};
++		};
++	};
++
++};
++
++/*
++ * mipi_dcphy0 needs to be enabled
++ * when dsi0 is enabled
++ */
++&dsi0 {
++	status = "okay";
++};
++
++&dsi0_in_vp2 {
++	status = "disabled";
++};
++
++&dsi0_in_vp3 {
++	status = "okay";
++};
++
++&dsi0_panel {
++    status = "okay";
++	power-supply = <&vcc3v3_lcd_n>;
++	reset-gpios = <&gpio1 RK_PA4 GPIO_ACTIVE_LOW>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&lcd_rst_gpio>;
++	
++};
++
++&route_dsi0 {
++	status = "okay";
++	connect = <&vp3_out_dsi0>;
++};
++
++
++
++&dsi1 {
++	status = "disabled";
++	//rockchip,lane-rate = <1000>;
++	dsi1_panel: panel@0 {
++		status = "okay";
++		compatible = "simple-panel-dsi";
++		reg = <0>;
++		backlight = <&backlight>;
++		reset-delay-ms = <10>;
++		enable-delay-ms = <10>;
++		prepare-delay-ms = <10>;
++		unprepare-delay-ms = <10>;
++		disable-delay-ms = <10>;
++		width-mm = <68>;
++		height-mm = <121>;
++		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++		dsi,format = <MIPI_DSI_FMT_RGB888>;
++		dsi,lanes  = <4>;
++		panel-init-sequence = [
++			23 00 02 FE 21
++			23 00 02 04 00
++			23 00 02 00 64
++			23 00 02 2A 00
++			23 00 02 26 64
++			23 00 02 54 00
++			23 00 02 50 64
++			23 00 02 7B 00
++			23 00 02 77 64
++			23 00 02 A2 00
++			23 00 02 9D 64
++			23 00 02 C9 00
++			23 00 02 C5 64
++			23 00 02 01 71
++			23 00 02 27 71
++			23 00 02 51 71
++			23 00 02 78 71
++			23 00 02 9E 71
++			23 00 02 C6 71
++			23 00 02 02 89
++			23 00 02 28 89
++			23 00 02 52 89
++			23 00 02 79 89
++			23 00 02 9F 89
++			23 00 02 C7 89
++			23 00 02 03 9E
++			23 00 02 29 9E
++			23 00 02 53 9E
++			23 00 02 7A 9E
++			23 00 02 A0 9E
++			23 00 02 C8 9E
++			23 00 02 09 00
++			23 00 02 05 B0
++			23 00 02 31 00
++			23 00 02 2B B0
++			23 00 02 5A 00
++			23 00 02 55 B0
++			23 00 02 80 00
++			23 00 02 7C B0
++			23 00 02 A7 00
++			23 00 02 A3 B0
++			23 00 02 CE 00
++			23 00 02 CA B0
++			23 00 02 06 C0
++			23 00 02 2D C0
++			23 00 02 56 C0
++			23 00 02 7D C0
++			23 00 02 A4 C0
++			23 00 02 CB C0
++			23 00 02 07 CF
++			23 00 02 2F CF
++			23 00 02 58 CF
++			23 00 02 7E CF
++			23 00 02 A5 CF
++			23 00 02 CC CF
++			23 00 02 08 DD
++			23 00 02 30 DD
++			23 00 02 59 DD
++			23 00 02 7F DD
++			23 00 02 A6 DD
++			23 00 02 CD DD
++			23 00 02 0E 15
++			23 00 02 0A E9
++			23 00 02 36 15
++			23 00 02 32 E9
++			23 00 02 5F 15
++			23 00 02 5B E9
++			23 00 02 85 15
++			23 00 02 81 E9
++			23 00 02 AD 15
++			23 00 02 A9 E9
++			23 00 02 D3 15
++			23 00 02 CF E9
++			23 00 02 0B 14
++			23 00 02 33 14
++			23 00 02 5C 14
++			23 00 02 82 14
++			23 00 02 AA 14
++			23 00 02 D0 14
++			23 00 02 0C 36
++			23 00 02 34 36
++			23 00 02 5D 36
++			23 00 02 83 36
++			23 00 02 AB 36
++			23 00 02 D1 36
++			23 00 02 0D 6B
++			23 00 02 35 6B
++			23 00 02 5E 6B
++			23 00 02 84 6B
++			23 00 02 AC 6B
++			23 00 02 D2 6B
++			23 00 02 13 5A
++			23 00 02 0F 94
++			23 00 02 3B 5A
++			23 00 02 37 94
++			23 00 02 64 5A
++			23 00 02 60 94
++			23 00 02 8A 5A
++			23 00 02 86 94
++			23 00 02 B2 5A
++			23 00 02 AE 94
++			23 00 02 D8 5A
++			23 00 02 D4 94
++			23 00 02 10 D1
++			23 00 02 38 D1
++			23 00 02 61 D1
++			23 00 02 87 D1
++			23 00 02 AF D1
++			23 00 02 D5 D1
++			23 00 02 11 04
++			23 00 02 39 04
++			23 00 02 62 04
++			23 00 02 88 04
++			23 00 02 B0 04
++			23 00 02 D6 04
++			23 00 02 12 05
++			23 00 02 3A 05
++			23 00 02 63 05
++			23 00 02 89 05
++			23 00 02 B1 05
++			23 00 02 D7 05
++			23 00 02 18 AA
++			23 00 02 14 36
++			23 00 02 42 AA
++			23 00 02 3D 36
++			23 00 02 69 AA
++			23 00 02 65 36
++			23 00 02 8F AA
++			23 00 02 8B 36
++			23 00 02 B7 AA
++			23 00 02 B3 36
++			23 00 02 DD AA
++			23 00 02 D9 36
++			23 00 02 15 74
++			23 00 02 3F 74
++			23 00 02 66 74
++			23 00 02 8C 74
++			23 00 02 B4 74
++			23 00 02 DA 74
++			23 00 02 16 9F
++			23 00 02 40 9F
++			23 00 02 67 9F
++			23 00 02 8D 9F
++			23 00 02 B5 9F
++			23 00 02 DB 9F
++			23 00 02 17 DC
++			23 00 02 41 DC
++			23 00 02 68 DC
++			23 00 02 8E DC
++			23 00 02 B6 DC
++			23 00 02 DC DC
++			23 00 02 1D FF
++			23 00 02 19 03
++			23 00 02 47 FF
++			23 00 02 43 03
++			23 00 02 6E FF
++			23 00 02 6A 03
++			23 00 02 94 FF
++			23 00 02 90 03
++			23 00 02 BC FF
++			23 00 02 B8 03
++			23 00 02 E2 FF
++			23 00 02 DE 03
++			23 00 02 1A 35
++			23 00 02 44 35
++			23 00 02 6B 35
++			23 00 02 91 35
++			23 00 02 B9 35
++			23 00 02 DF 35
++			23 00 02 1B 45
++			23 00 02 45 45
++			23 00 02 6C 45
++			23 00 02 92 45
++			23 00 02 BA 45
++			23 00 02 E0 45
++			23 00 02 1C 55
++			23 00 02 46 55
++			23 00 02 6D 55
++			23 00 02 93 55
++			23 00 02 BB 55
++			23 00 02 E1 55
++			23 00 02 22 FF
++			23 00 02 1E 68
++			23 00 02 4C FF
++			23 00 02 48 68
++			23 00 02 73 FF
++			23 00 02 6F 68
++			23 00 02 99 FF
++			23 00 02 95 68
++			23 00 02 C1 FF
++			23 00 02 BD 68
++			23 00 02 E7 FF
++			23 00 02 E3 68
++			23 00 02 1F 7E
++			23 00 02 49 7E
++			23 00 02 70 7E
++			23 00 02 96 7E
++			23 00 02 BE 7E
++			23 00 02 E4 7E
++			23 00 02 20 97
++			23 00 02 4A 97
++			23 00 02 71 97
++			23 00 02 97 97
++			23 00 02 BF 97
++			23 00 02 E5 97
++			23 00 02 21 B5
++			23 00 02 4B B5
++			23 00 02 72 B5
++			23 00 02 98 B5
++			23 00 02 C0 B5
++			23 00 02 E6 B5
++			23 00 02 25 F0
++			23 00 02 23 E8
++			23 00 02 4F F0
++			23 00 02 4D E8
++			23 00 02 76 F0
++			23 00 02 74 E8
++			23 00 02 9C F0
++			23 00 02 9A E8
++			23 00 02 C4 F0
++			23 00 02 C2 E8
++			23 00 02 EA F0
++			23 00 02 E8 E8
++			23 00 02 24 FF
++			23 00 02 4E FF
++			23 00 02 75 FF
++			23 00 02 9B FF
++			23 00 02 C3 FF
++			23 00 02 E9 FF
++			23 00 02 FE 3D
++			23 00 02 00 04
++			23 00 02 FE 23
++			23 00 02 08 82
++			23 00 02 0A 00
++			23 00 02 0B 00
++			23 00 02 0C 01
++			23 00 02 16 00
++			23 00 02 18 02
++			23 00 02 1B 04
++			23 00 02 19 04
++			23 00 02 1C 81
++			23 00 02 1F 00
++			23 00 02 20 03
++			23 00 02 23 04
++			23 00 02 21 01
++			23 00 02 54 63
++			23 00 02 55 54
++			23 00 02 6E 45
++			23 00 02 6D 36
++			23 00 02 FE 3D
++			23 00 02 55 78
++			23 00 02 FE 20
++			23 00 02 26 30
++			23 00 02 FE 3D
++			23 00 02 20 71
++			23 00 02 50 8F
++			23 00 02 51 8F
++			23 00 02 FE 00
++			23 00 02 35 00
++			05 78 01 11
++			05 00 01 29
++		];
++
++		panel-exit-sequence = [
++			05 00 01 28
++			05 00 01 10
++		];
++
++		disp_timings1: display-timings {
++			native-mode = <&dsi1_timing0>;
++			dsi1_timing0: timing0 {
++				clock-frequency = <132000000>;
++				hactive = <1080>;
++				vactive = <1920>;
++				hfront-porch = <15>;
++				hsync-len = <4>;
++				hback-porch = <30>;
++				vfront-porch = <15>;
++				vsync-len = <2>;
++				vback-porch = <15>;
++				hsync-active = <0>;
++				vsync-active = <0>;
++				de-active = <0>;
++				pixelclk-active = <0>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				panel_in_dsi1: endpoint {
++					remote-endpoint = <&dsi1_out_panel>;
++				};
++			};
++		};
++	};
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@1 {
++			reg = <1>;
++			dsi1_out_panel: endpoint {
++				remote-endpoint = <&panel_in_dsi1>;
++			};
++		};
++	};
++
++};
++
++/*
++ * mipi_dcphy1 needs to be enabled
++ * when dsi1 is enabled
++ */
++&dsi1 {
++	status = "disabled";
++};
++
++&dsi1_in_vp2 {
++	status = "disabled";
++};
++
++&dsi1_in_vp3 {
++	status = "disabled";
++};
++
++&dsi1_panel {
++	//power-supply = <&vcc3v3_lcd_n>;
++
++	/*
++	 * because in hardware, the two screens share the reset pin,
++	 * so reset-gpios need only in dsi1 enable and dsi0 disabled
++	 * case.
++	 */
++
++	//reset-gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
++	//pinctrl-names = "default";
++	//pinctrl-0 = <&lcd_rst_gpio>;
++};
++
++
++&i2c7 {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c7m0_xfer>;
++#if 0
++	focaltech: focaltech@38 {
++		status = "okay";
++		compatible = "focaltech,fts";
++		reg = <0x38>;
++		power-supply = <&vcc3v3_lcd_n>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_gpio>;
++		focaltech,irq-gpio = <&gpio2 RK_PA6 IRQ_TYPE_LEVEL_LOW>;
++		focaltech,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
++		focaltech,have-key = <0>;
++		focaltech,key-number = <3>;
++		focaltech,keys = <256 1068 64 64 128 1068 64 64 192 1068 64 64>;
++		focaltech,key-x-coord = <1600>;
++		focaltech,key-y-coord = <2176>;
++		focaltech,max-touch-number = <5>;
++	};
++#endif
++
++	focaltech: focaltech@38 {
++		status = "okay";
++		compatible = "focaltech,fts";
++		reg = <0x38>;
++		power-supply = <&vcc3v3_lcd_n>;
++		
++		interrupt-parent = <&gpio2>;
++		interrupts = <RK_PC1 IRQ_TYPE_LEVEL_HIGH>;
++		
++		focaltech,irq-gpio = <&gpio2 RK_PC1 IRQ_TYPE_LEVEL_LOW>;
++		focaltech,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_HIGH>;
++		
++		pinctrl-names = "default";
++		pinctrl-0 = <&touch_gpio>;
++		
++		focaltech,max-touch-number = <10>;			
++		focaltech,display-coords =  <0 0 1080 2340>;				
++	};
++};
++
++&pinctrl {
++	lcd {
++
++		lcd_rst_gpio: lcd-rst-gpio {
++			rockchip,pins = <1 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++		vcc3v3_lcd_en: vcc3v3-lcd-en {
++			rockchip,pins = <2 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++		vcc3v3_lcd_vci_en: vcc3v3-lcd-vci-en {
++			rockchip,pins = <4 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++		vcc1v8_lcd_vddio_en: vcc1v8-lcd-vddio-en {
++			rockchip,pins = <1 RK_PB3 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++	touch {
++		touch_gpio: touch-gpio {
++			rockchip,pins =
++				<2 RK_PC1 RK_FUNC_GPIO &pcfg_pull_up>,
++				<3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++		vcc3v3_touch_avdd_en: vcc3v3-touch-avdd-en {
++			rockchip,pins = <1 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++
++};
+\ No newline at end of file
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 68c1910b5e92..2a60c18b9e7b 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -649,3 +649,4 @@ CONFIG_RCU_CPU_STALL_TIMEOUT=60
+ CONFIG_FUNCTION_TRACER=y
+ CONFIG_BLK_DEV_IO_TRACE=y
+ CONFIG_LKDTM=y
++CONFIG_LINKYUM_PHY=y
+\ No newline at end of file
+diff --git a/drivers/media/i2c/Makefile b/drivers/media/i2c/Makefile
+index 6e7484ac1a3b..9e06282f6c6f 100644
+--- a/drivers/media/i2c/Makefile
++++ b/drivers/media/i2c/Makefile
+@@ -276,3 +276,4 @@ obj-$(CONFIG_VIDEO_PREISP_DUMMY_SENSOR) += preisp-dummy.o
+ obj-$(CONFIG_VIDEO_ROCKCHIP_THUNDER_BOOT_SETUP)	+= cam-tb-setup.o
+ obj-$(CONFIG_VIDEO_CAM_SLEEP_WAKEUP)	+= cam-sleep-wakeup.o
+ obj-$(CONFIG_VIDEO_LIGHT_CTL)	+= light_ctl.o
++obj-y	+= ov9734.o
+\ No newline at end of file
+diff --git a/drivers/media/i2c/ov9734.c b/drivers/media/i2c/ov9734.c
+new file mode 100755
+index 000000000000..c3dcee11f66b
+--- /dev/null
++++ b/drivers/media/i2c/ov9734.c
+@@ -0,0 +1,1666 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * ov9734 driver
++ *
++ * Copyright (C) 2020 Rockchip Electronics Co., Ltd.
++ *
++ * V0.0X01.0X00 first version
++ */
++
++#define DEBUG
++#include <linux/clk.h>
++#include <linux/device.h>
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/i2c.h>
++#include <linux/module.h>
++#include <linux/pm_runtime.h>
++#include <linux/regulator/consumer.h>
++#include <linux/sysfs.h>
++#include <linux/slab.h>
++#include <linux/version.h>
++#include <linux/rk-camera-module.h>
++#include <media/media-entity.h>
++#include <media/v4l2-async.h>
++#include <media/v4l2-ctrls.h>
++#include <media/v4l2-subdev.h>
++#include <linux/pinctrl/consumer.h>
++#include <linux/rk-preisp.h>
++
++#define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x05)
++
++#ifndef V4L2_CID_DIGITAL_GAIN
++#define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
++#endif
++
++#define MIPI_FREQ_180M			180000000
++/* ov9734 only support 1-lane mipi output */
++#define OV9734_4LANES			1
++#define OV9734_PIXEL_RATE		(49 * 1000 * 1000)
++#define OV9734_XVCLK_FREQ		24000000
++//#define OV9734_XVCLK_FREQ		12000000
++#define OF_CAMERA_HDR_MODE		"rockchip,camera-hdr-mode"
++
++
++/* TODO: Get the real chip id from reg */
++#define OV9734_CHIP_ID			0x9734
++#define OH01A10_CHIP_ID			0x5601
++#define OV9734_REG_CHIP_ID		0x300a
++
++#define OV9734_REG_CTRL_MODE		0x0100
++#define OV9734_MODE_SW_STANDBY		0x00
++#define OV9734_MODE_STREAMING		BIT(0)
++
++/* Analog gain controls from sensor */
++#define OV9734_REG_ANALOG_GAIN		0x350a
++#define OH01A10_REG_ANALOG_GAIN		0x3508
++
++#define OV9734_ANAL_GAIN_MIN		16
++#define OV9734_ANAL_GAIN_MAX		248
++#define OV9734_ANAL_GAIN_STEP		1
++
++/* Exposure controls from sensor */
++#define OV9734_REG_EXPOSURE		0x3500
++#define OV9734_EXPOSURE_MIN		4
++#define OV9734_EXPOSURE_MAX_MARGIN	4
++#define	OV9734_EXPOSURE_STEP		1
++
++/* vertical-timings from sensor */
++#define OV9734_REG_VTS			0x380e
++#define OV9734_VTS		0x032a
++
++#define OV9734_VTS_MIN	0x032a
++#define OV9734_VTS_MAX			0x7fff
++
++/* horizontal-timings from sensor */
++#define OV9734_REG_HTS			0x380c
++#define OV9734_HTS		0x05c6
++
++/* Test Pattern Control */
++#define OV9734_REG_TEST_PATTERN		0x5080
++#define OV9734_TEST_PATTERN_ENABLE	BIT(7)
++#define OV9734_TEST_PATTERN_BAR_SHIFT	2
++#define	OV9734_TEST_PATTERN_DISABLE	0x0
++
++/* Group Access */
++#define OV9734_REG_GROUP_ACCESS		0x3208
++#define OV9734_GROUP_HOLD_START		0x0
++#define OV9734_GROUP_HOLD_END		0x10
++#define OV9734_GROUP_HOLD_LAUNCH	0xa0
++
++#define REG_NULL			0xFFFF
++#define OV9734_REG_VALUE_08BIT		1
++#define OV9734_REG_VALUE_16BIT		2
++#define OV9734_REG_VALUE_24BIT		3
++
++#define I2C_M_WR			0
++#define I2C_MSG_MAX			300
++#define I2C_DATA_MAX			(I2C_MSG_MAX * 3)
++
++#define OF_CAMERA_PINCTRL_STATE_DEFAULT	"rockchip,camera_default"
++
++#define OV9734_NAME			"ov9734"
++#define OH01A10_NAME			"oh01a10"
++#define OV9734_LANES			1
++
++#define OV9734_PIX_FORMAT			MEDIA_BUS_FMT_SBGGR10_1X10	//MEDIA_BUS_FMT_SRGGB10_1X10 红屏	//MEDIA_BUS_FMT_SBGGR10_1X10 红变蓝	//MEDIA_BUS_FMT_SGRBG10_1X10 绿屏	
++#define OH01A10_PIX_FORMAT			MEDIA_BUS_FMT_SBGGR10_1X10	//MEDIA_BUS_FMT_SRGGB10_1X10 红屏	//MEDIA_BUS_FMT_SBGGR10_1X10 红变蓝	//MEDIA_BUS_FMT_SGRBG10_1X10 绿屏
++
++#define RKMODULE_CAMERA_MODULE_INDEX_OH01A10	"rockchip,camera-module-index-oh01a10"
++#define RKMODULE_CAMERA_MODULE_FACING_OH01A10	"rockchip,camera-module-facing-oh01a10"
++#define RKMODULE_CAMERA_MODULE_NAME_OH01A10		"rockchip,camera-module-name-oh01a10"
++#define RKMODULE_CAMERA_LENS_NAME_OH01A10		"rockchip,camera-module-lens-name-oh01a10"
++
++#define OV9734_PM_RUNTIME	1
++
++
++static u32 camera_id = 0;
++
++
++struct regval {
++	u16 addr;
++	u8 val;
++};
++
++struct ov9734_mode {
++	//u32 bus_fmt;
++	u32 width;
++	u32 height;
++	struct v4l2_fract max_fps;
++	u32 hts_def;
++	u32 vts_def;
++	u32 exp_def;
++	//const struct regval *reg_list;
++};
++
++struct ov9734 {
++	struct i2c_client	*client;
++	struct clk		*xvclk;
++
++	struct pinctrl		*pinctrl;
++	struct pinctrl_state	*pins_default;
++
++	struct v4l2_subdev	subdev;
++	struct media_pad	pad;
++	struct v4l2_ctrl_handler ctrl_handler;
++	struct v4l2_ctrl	*exposure;
++	struct v4l2_ctrl	*anal_gain;
++	struct v4l2_ctrl	*digi_gain;
++	struct v4l2_ctrl	*hblank;
++	struct v4l2_ctrl	*vblank;
++	struct v4l2_ctrl	*test_pattern;
++	struct mutex		mutex;
++	bool			streaming;
++	bool			power_on;
++	const struct ov9734_mode *cur_mode;
++	u32			module_index;
++	const char		*module_facing;
++	const char		*module_name;
++	const char		*len_name;
++	struct v4l2_fract	cur_fps;
++	u32			cur_vts;
++};
++
++#define to_ov9734(sd) container_of(sd, struct ov9734, subdev)
++
++
++static const struct regval hs_ov9734_1280x720_regs[] = {
++	{0x0103, 0x01},
++	{0x0100, 0x00},
++	{0x3001, 0x00},
++	{0x3002, 0x00},
++	{0x3007, 0x00},
++	{0x3009, 0x60},
++	{0x3010, 0x00},
++	{0x3011, 0x08},
++	{0x3014, 0x22},
++	{0x301e, 0x15},
++	{0x3030, 0x19},
++	{0x3080, 0x02},
++	{0x3081, 0x3c},
++	{0x3082, 0x04},
++	{0x3083, 0x00},
++	{0x3084, 0x02},
++	{0x3085, 0x01},
++	{0x3086, 0x01},
++	{0x3089, 0x01},
++	{0x308a, 0x00},
++	{0x3103, 0x01},
++	{0x3600, 0x55},
++	{0x3601, 0x02},
++	{0x3605, 0x22},
++	{0x3611, 0xe7},
++	{0x3654, 0x10},
++	{0x3655, 0x77},
++	{0x3656, 0x77},
++	{0x3657, 0x07},
++	{0x3658, 0x22},
++	{0x3659, 0x22},
++	{0x365a, 0x02},
++	{0x3784, 0x05},
++	{0x3785, 0x55},
++	{0x37c0, 0x07},
++	{0x3800, 0x00},
++	{0x3801, 0x04},
++	{0x3802, 0x00},
++	{0x3803, 0x04},
++	{0x3804, 0x05},
++	{0x3805, 0x0b},
++	{0x3806, 0x02},
++	{0x3807, 0xdb},
++	{0x3808, 0x05},
++	{0x3809, 0x00},
++	{0x380a, 0x02},
++	{0x380b, 0xd0},
++	{0x380c, 0x05},
++	{0x380d, 0xc6},
++	{0x380e, 0x03},
++	{0x380f, 0x2a},
++	{0x3810, 0x00},
++	{0x3811, 0x04},
++	{0x3812, 0x00},
++	{0x3813, 0x04},
++	{0x3816, 0x00},
++	{0x3817, 0x00},
++	{0x3818, 0x00},
++	{0x3819, 0x04},
++	{0x3820, 0x18},
++	{0x3821, 0x00},
++	{0x382c, 0x06},
++	{0x3500, 0x00},
++	{0x3501, 0x31},
++	{0x3502, 0x00},
++	{0x3503, 0x03},
++	{0x3504, 0x00},
++	{0x3505, 0x00},
++	{0x3509, 0x10},
++	{0x350a, 0x00},
++	{0x350b, 0x40},
++	{0x3d00, 0x00},
++	{0x3d01, 0x00},
++	{0x3d02, 0x00},
++	{0x3d03, 0x00},
++	{0x3d04, 0x00},
++	{0x3d05, 0x00},
++	{0x3d06, 0x00},
++	{0x3d07, 0x00},
++	{0x3d08, 0x00},
++	{0x3d09, 0x00},
++	{0x3d0a, 0x00},
++	{0x3d0b, 0x00},
++	{0x3d0c, 0x00},
++	{0x3d0d, 0x00},
++	{0x3d0e, 0x00},
++	{0x3d0f, 0x00},
++	{0x3d80, 0x00},
++	{0x3d81, 0x00},
++	{0x3d82, 0x38},
++	{0x3d83, 0xa4},
++	{0x3d84, 0x00},
++	{0x3d85, 0x00},
++	{0x3d86, 0x1f},
++	{0x3d87, 0x03},
++	{0x3d8b, 0x00},
++	{0x3d8f, 0x00},
++	{0x4001, 0xe0},
++	{0x4009, 0x0b},
++	{0x4300, 0x03},
++	{0x4301, 0xff},
++	{0x4304, 0x00},
++	{0x4305, 0x00},
++	{0x4309, 0x00},
++	{0x4600, 0x00},
++	{0x4601, 0x80},
++	{0x4800, 0x00},
++	{0x4805, 0x00},
++	{0x4821, 0x50},
++	{0x4823, 0x50},
++	{0x4837, 0x2d},
++	{0x4a00, 0x00},
++	{0x4f00, 0x80},
++	{0x4f01, 0x10},
++	{0x4f02, 0x00},
++	{0x4f03, 0x00},
++	{0x4f04, 0x00},
++	{0x4f05, 0x00},
++	{0x4f06, 0x00},
++	{0x4f07, 0x00},
++	{0x4f08, 0x00},
++	{0x4f09, 0x00},
++	{0x5000, 0x2f},
++	{0x500c, 0x00},
++	{0x500d, 0x00},
++	{0x500e, 0x00},
++	{0x500f, 0x00},
++	{0x5010, 0x00},
++	{0x5011, 0x00},
++	{0x5012, 0x00},
++	{0x5013, 0x00},
++	{0x5014, 0x00},
++	{0x5015, 0x00},
++	{0x5016, 0x00},
++	{0x5017, 0x00},
++	{0x5080, 0x00},
++	{0x5180, 0x01},
++	{0x5181, 0x00},
++	{0x5182, 0x01},
++	{0x5183, 0x00},
++	{0x5184, 0x01},
++	{0x5185, 0x00},
++	{0x5708, 0x06},
++	{0x380f, 0x2a},//;22;30fps
++	{0x5780, 0x3e},	//;DPC
++	{0x5781, 0x0f},
++	{0x5782, 0x44},
++	{0x5783, 0x02},
++	{0x5784, 0x01},
++	{0x5785, 0x01},
++	{0x5786, 0x00},
++	{0x5787, 0x04},
++	{0x5788, 0x02},
++	{0x5789, 0x0f},
++	{0x578a, 0xfd},
++	{0x578b, 0xf5},
++	{0x578c, 0xf5},
++	{0x578d, 0x03},
++	{0x578e, 0x08},
++	{0x578f, 0x0c},
++	{0x5790, 0x08},
++	{0x5791, 0x04},
++	{0x5792, 0x00},
++	{0x5793, 0x52},
++	{0x5794, 0xa3},
++	{0x5000, 0x3f},//;MWB
++#if 0
++	{0x0100, 0x00},	//; //;@@ 0 4 Res_1288x728_FULL_30FPS //;RUN Res_1280x720_FULL_30FPS //;For PantherM //99 1288 728 //;Res_1288x728
++	{0x3801, 0x00},//;04
++	{0x3803, 0x00},//;04
++	{0x3805, 0x0f},//;0b
++	{0x3807, 0xdf},//;db
++	{0x3809, 0x08},//;00
++	{0x380b, 0xd8},//;d0
++	{0x3811, 0x04},
++	{0x3813, 0x04},
++	{0x0100, 0x01},
++#endif
++	{REG_NULL, 0x00},	
++};
++
++//static const struct regval oh01a10_1280x720_regs[] = {
++static struct regval oh01a10_1280x720_regs[] = {
++	{0x0100, 0x00},
++	{0x0103, 0x01},
++	{0x0302, 0x00},
++	{0x0303, 0x06},
++	{0x0304, 0x01},
++	{0x0305, 0x90},
++	{0x0306, 0x00},
++	{0x0308, 0x01},
++	{0x0309, 0x00},
++	{0x030c, 0x01},
++	{0x0322, 0x01},
++	{0x0323, 0x06},
++	{0x0324, 0x01},
++	{0x0325, 0x68},
++	{0x3002, 0xa1},
++	{0x301e, 0xf0},
++	{0x3022, 0x01},
++	{0x3501, 0x03},
++	{0x3502, 0x78},
++	{0x3504, 0x0c},
++	{0x3508, 0x01},
++	{0x3509, 0x00},
++	{0x350a, 0x01},		//{0x350a, 0x01},
++	{0x350b, 0x00},		//{0x350b, 0x00},
++	{0x350c, 0x00},		//{0x350c, 0x00},	
++	{0x3601, 0xc0},
++	{0x3603, 0x71},
++	{0x3610, 0x68},
++	{0x3611, 0x86},
++	{0x3640, 0x10},
++	{0x3641, 0x80},
++	{0x3642, 0xdc},
++	{0x3646, 0x55},
++	{0x3647, 0x57},
++	{0x364b, 0x00},
++	{0x3653, 0x10},
++	{0x3655, 0x00},
++	{0x3656, 0x00},
++	{0x365f, 0x0f},
++	{0x3661, 0x45},
++	{0x3662, 0x24},
++	{0x3663, 0x11},
++	{0x3664, 0x07},
++	{0x3709, 0x34},
++	{0x370b, 0x6f},
++	{0x3714, 0x22},
++	{0x371b, 0x27},
++	{0x371c, 0x67},
++	{0x371d, 0xa7},
++	{0x371e, 0xe7},
++	{0x3730, 0x81},
++	{0x3733, 0x10},
++	{0x3734, 0x40},
++	{0x3737, 0x04},
++	{0x3739, 0x1c},
++	{0x3767, 0x00},
++	{0x376c, 0x81},
++	{0x3772, 0x14},
++	{0x37c2, 0x04},
++	{0x37d8, 0x03},
++	{0x37d9, 0x0c},
++	{0x37e0, 0x00},
++	{0x37e1, 0x08},
++	{0x37e2, 0x10},
++	{0x37e3, 0x04},
++	{0x37e4, 0x04},
++	{0x37e5, 0x03},
++	{0x37e6, 0x04},
++	{0x3800, 0x00},
++	{0x3801, 0x00},
++	{0x3802, 0x00},
++	{0x3803, 0x28},
++	{0x3804, 0x05},
++	{0x3805, 0x0f},
++	{0x3806, 0x03},
++	{0x3807, 0x07},
++	{0x3808, 0x05},
++	{0x3809, 0x00},
++	{0x380a, 0x02},
++	{0x380b, 0xd0},
++	{0x380c, 0x06},//{0x380c, 0x06}, 	//nkj {0x380c, 0x02}
++	{0x380d, 0x6e},//{0x380d, 0x6e},	//nkj {0x380d, 0xe8}
++	{0x380e, 0x03},
++	{0x380f, 0x2a},//{0x380f, 0x2a},	//nkj {0x380f, 0x80}
++	{0x3810, 0x00},
++	{0x3811, 0x09},
++	{0x3812, 0x00},
++	{0x3813, 0x08},
++	{0x3814, 0x01},
++	{0x3815, 0x01},
++	{0x3816, 0x01},
++	{0x3817, 0x01},
++	{0x3820, 0xa8},
++	{0x3822, 0x13},
++	{0x3832, 0x28},
++	{0x3833, 0x10},
++	{0x3b00, 0x00},
++	{0x3c80, 0x00},
++	{0x3c88, 0x02},
++	{0x3c8c, 0x07},
++	{0x3c8d, 0x40},
++	{0x3cc7, 0x80},
++	{0x4000, 0xc3},
++	{0x4001, 0xe0},
++	{0x4003, 0x40},
++	{0x4008, 0x02},
++	{0x4009, 0x19},
++	{0x400a, 0x01},
++	{0x400b, 0x6c},
++	{0x4011, 0x00},
++	{0x4041, 0x00},
++	{0x4300, 0xff},
++	{0x4301, 0x00},
++	{0x4302, 0x0f},
++	{0x4503, 0x00},
++	{0x4601, 0x50},
++	{0x4800, 0x64},
++	{0x481f, 0x34},
++	{0x4825, 0x33},
++	{0x4837, 0x14},
++	{0x4881, 0x40},
++	{0x4883, 0x01},
++	{0x4885, 0x20}, //修改驱动能力
++	{0x4890, 0x00},
++	{0x4901, 0x00},
++	{0x4902, 0x00},
++	{0x4b00, 0x2a},
++	{0x4b0d, 0x00},
++	{0x450a, 0x04},
++	{0x450b, 0x00},
++	{0x5000, 0x75},
++	{0x5004, 0x00},
++	{0x5080, 0x40},
++	{0x4800, 0x64},
++	{0x4837, 0x14},
++	{0x0100, 0x01},
++	{0x0100, 0x01},
++	{0x0100, 0x01},
++	{0x0100, 0x01},
++	{REG_NULL, 0x00},
++};
++/*
++ * The width and height must be configured to be
++ * the same as the current output resolution of the sensor.
++ * The input width of the isp needs to be 16 aligned.
++ * The input height of the isp needs to be 8 aligned.
++ * If the width or height does not meet the alignment rules,
++ * you can configure the cropping parameters with the following function to
++ * crop out the appropriate resolution.
++ * struct v4l2_subdev_pad_ops {
++ *	.get_selection
++ * }
++ */
++
++static const struct ov9734_mode supported_modes[] = {
++	{
++		/* 1H period = 7.4us */
++		//.bus_fmt = OV9734_PIX_FORMAT,
++		.width = 1280,
++		.height = 720,
++		.max_fps = {
++			.numerator = 10000,
++			.denominator = 150000,
++			//.denominator = 600000,
++		},
++		.exp_def = OV9734_VTS - 0x09,
++		.hts_def = OV9734_HTS,
++		.vts_def = OV9734_VTS,
++		//.reg_list = hs_ov9734_1280x720_regs,
++		/* 1H period = 7.4us */
++		//.bus_fmt = OV9734_PIX_FORMAT,
++		},
++};
++
++
++#if 0
++static const u32 bus_code[] = {
++	MEDIA_BUS_FMT_SBGGR10_1X10,
++};
++#endif
++
++static const s64 link_freq_items[] = {
++	MIPI_FREQ_180M,
++};
++
++static const char * const ov9734_test_pattern_menu[] = {
++	"Disabled",
++	"Vertical Color Bar Type 1",
++	"Vertical Color Bar Type 2",
++	"Vertical Color Bar Type 3",
++	"Vertical Color Bar Type 4"
++};
++
++
++/* Write registers up to 4 at a time */
++static int ov9734_write_reg(struct i2c_client *client, u16 reg, int len, u32 val)
++{
++	u32 buf_i, val_i;
++	u8 buf[6];
++	u8 *val_p;
++	__be32 val_be;
++
++	if (len > 4)
++		return -EINVAL;
++
++	buf[0] = reg >> 8;
++	buf[1] = reg & 0xff;
++
++	val_be = cpu_to_be32(val);
++	val_p = (u8 *)&val_be;
++	buf_i = 2;
++	val_i = 4 - len;
++
++	while (val_i < 4)
++		buf[buf_i++] = val_p[val_i++];
++	
++	//printk("arley_ov9734 write reg = 0x%04x, value = 0x%04x\n", reg, val);
++	if (i2c_master_send(client, buf, len + 2) != len + 2){
++		printk("arley_ov9734 i2c_master_send error\n");
++		return -EIO;
++	}
++
++	return 0;
++}
++#if 0
++static int ov9734_write_array(struct i2c_client *client,
++			      const struct regval *regs)
++{
++	u32 i;
++	int ret = 0;
++
++	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++) {
++		ret = ov9734_write_reg(client, regs[i].addr,
++				       OV9734_REG_VALUE_08BIT, regs[i].val);
++	}
++	return ret;
++}
++#else
++static int ov9734_write_array(struct i2c_client *client,
++			      const struct regval *regs)
++{
++	u8 *data;
++	u32 i, j = 0, k = 0;
++	int ret = 0;
++	struct i2c_msg *msg;
++	printk("arley_ov9734 ov9734_write_array start\n");
++	msg = kmalloc((sizeof(struct i2c_msg) * I2C_MSG_MAX),
++		GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	data = kmalloc((sizeof(unsigned char) * I2C_DATA_MAX),
++		GFP_KERNEL);
++	if (!data) {
++		kfree(msg);
++		return -ENOMEM;
++	}
++
++	for (i = 0; regs[i].addr != REG_NULL; i++) {
++		(msg + j)->addr = client->addr;
++		(msg + j)->flags = I2C_M_WR;
++		(msg + j)->buf = (data + k);
++
++		data[k + 0] = (u8)(regs[i].addr >> 8);
++		data[k + 1] = (u8)(regs[i].addr & 0xFF);
++		data[k + 2] = (u8)(regs[i].val & 0xFF);
++		printk("arley_ov9734 ov9734_write_array: 0x%04X, value: 0x%04X\n",regs[i].addr, regs[i].val);
++		k = k + 3;
++		(msg + j)->len = 3;
++
++		if (j++ == (I2C_MSG_MAX - 1)) {
++			ret = i2c_transfer(client->adapter, msg, j);
++			if (ret < 0) {
++				printk("arley_ov9734 ov9734_write_array i2c_transfer 01 error\n");
++				kfree(msg);
++				kfree(data);
++				return ret;
++			}
++
++			j = 0;
++			k = 0;
++		}
++	}
++
++	if (j != 0) {
++		ret = i2c_transfer(client->adapter, msg, j);
++		if (ret < 0) {
++			printk("arley_ov9734 ov9734_write_array i2c_transfer 02 error\n");
++			kfree(msg);
++			kfree(data);
++			return ret;
++		}
++	}
++	kfree(msg);
++	kfree(data);
++	printk("arley_ov9734 ov9734_write_array end\n");
++	return 0;
++}
++#endif
++/* Read registers up to 4 at a time */
++static int ov9734_read_reg(struct i2c_client *client, u16 reg, unsigned int len, u32 *val)
++{
++	struct i2c_msg msgs[2];
++	u8 *data_be_p;
++	__be32 data_be = 0;
++	__be16 reg_addr_be = cpu_to_be16(reg);
++	int ret;
++
++	if (len > 4 || !len)
++		return -EINVAL;
++
++	data_be_p = (u8 *)&data_be;
++	/* Write register address */
++	msgs[0].addr = client->addr;
++	msgs[0].flags = 0;
++	msgs[0].len = 2;
++	msgs[0].buf = (u8 *)&reg_addr_be;
++
++	/* Read data from register */
++	msgs[1].addr = client->addr;
++	msgs[1].flags = I2C_M_RD;
++	msgs[1].len = len;
++	msgs[1].buf = &data_be_p[4 - len];
++
++	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
++	if (ret != ARRAY_SIZE(msgs))
++		return -EIO;
++
++	*val = be32_to_cpu(data_be);
++
++	return 0;
++}
++
++static int ov9734_get_reso_dist(const struct ov9734_mode *mode,
++				struct v4l2_mbus_framefmt *framefmt)
++{
++	return abs(mode->width - framefmt->width) +
++	       abs(mode->height - framefmt->height);
++}
++
++static const struct ov9734_mode *
++ov9734_find_best_fit(struct ov9734 *ov9734, struct v4l2_subdev_format *fmt)
++{
++	struct v4l2_mbus_framefmt *framefmt = &fmt->format;
++	int dist;
++	int cur_best_fit = 0;
++	int cur_best_fit_dist = -1;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
++		dist = ov9734_get_reso_dist(&supported_modes[i], framefmt);
++		if (cur_best_fit_dist == -1 || dist < cur_best_fit_dist) {
++			cur_best_fit_dist = dist;
++			cur_best_fit = i;
++		}
++	}
++
++	return &supported_modes[cur_best_fit];
++}
++
++
++static int ov9734_set_fmt(struct v4l2_subdev *sd,
++			  struct v4l2_subdev_pad_config *cfg,
++			  struct v4l2_subdev_format *fmt)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	const struct ov9734_mode *mode;
++	s64 h_blank, vblank_def;
++
++
++	mutex_lock(&ov9734->mutex);
++
++	mode = ov9734_find_best_fit(ov9734, fmt);
++	if(camera_id == OV9734_CHIP_ID){
++		fmt->format.code = OV9734_PIX_FORMAT;
++	}else if(camera_id == OH01A10_CHIP_ID){
++		fmt->format.code = OH01A10_PIX_FORMAT;
++	}
++	fmt->format.width = mode->width;
++	fmt->format.height = mode->height;
++	fmt->format.field = V4L2_FIELD_NONE;
++	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
++		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
++#else
++		mutex_unlock(&ov9734->mutex);
++		return -ENOTTY;
++#endif
++	} else {
++		//ov9734_change_mode(ov9734, mode);
++		ov9734->cur_mode = mode;
++		h_blank = mode->hts_def - mode->width;
++		__v4l2_ctrl_modify_range(ov9734->hblank, h_blank,
++					 h_blank, 1, h_blank);
++		vblank_def = mode->vts_def - mode->height;
++		__v4l2_ctrl_modify_range(ov9734->vblank, vblank_def,
++					 OV9734_VTS_MAX - mode->height,
++					 1, vblank_def);
++		ov9734->cur_fps = mode->max_fps;
++	}
++
++	mutex_unlock(&ov9734->mutex);
++
++	return 0;
++}
++
++static int ov9734_get_fmt(struct v4l2_subdev *sd,
++			  struct v4l2_subdev_pad_config *cfg,
++			  struct v4l2_subdev_format *fmt)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	const struct ov9734_mode *mode = ov9734->cur_mode;
++
++	mutex_lock(&ov9734->mutex);
++	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
++		fmt->format = *v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
++#else
++		mutex_unlock(&ov9734->mutex);
++		return -ENOTTY;
++#endif
++	} else {
++		fmt->format.width = mode->width;
++		fmt->format.height = mode->height;
++		if(camera_id == OV9734_CHIP_ID){
++			fmt->format.code = OV9734_PIX_FORMAT;
++		}else if(camera_id == OH01A10_CHIP_ID){
++			fmt->format.code = OH01A10_PIX_FORMAT;
++		}
++		fmt->format.field = V4L2_FIELD_NONE;
++
++	}
++	mutex_unlock(&ov9734->mutex);
++
++	return 0;
++}
++
++static int ov9734_enum_mbus_code(struct v4l2_subdev *sd,
++				 struct v4l2_subdev_pad_config *cfg,
++				 struct v4l2_subdev_mbus_code_enum *code)
++{
++#if 0
++	if (code->index >= ARRAY_SIZE(bus_code))
++		return -EINVAL;
++	code->code = bus_code[code->index];
++#else
++	if (code->index > 0){
++		printk("arley_ov9734 ov9734_enum_mbus_code error\n");
++		return -EINVAL;
++	}
++		
++	if(camera_id == OV9734_CHIP_ID){
++		code->code = OV9734_PIX_FORMAT;
++	}else if(camera_id == OH01A10_CHIP_ID){
++		code->code = OH01A10_PIX_FORMAT;
++	}
++	
++#endif
++	return 0;
++}
++
++
++
++static int ov9734_enum_frame_sizes(struct v4l2_subdev *sd,
++				   struct v4l2_subdev_pad_config *cfg,
++				   struct v4l2_subdev_frame_size_enum *fse)
++{
++	if (fse->index >= ARRAY_SIZE(supported_modes))
++		return -EINVAL;
++
++	if (fse->code != OV9734_PIX_FORMAT && fse->code != OH01A10_PIX_FORMAT){
++		printk("arley_ov9734 ov9734_enum_frame_sizes error\n");
++		return -EINVAL;
++	}
++		
++
++	fse->min_width  = supported_modes[fse->index].width;
++	fse->max_width  = supported_modes[fse->index].width;
++	fse->max_height = supported_modes[fse->index].height;
++	fse->min_height = supported_modes[fse->index].height;
++
++	return 0;
++}
++
++
++#if 1
++static int ov9734_test_pattern(struct ov9734 *ov9734, u32 pattern)
++{
++	u32 val;
++
++	if (pattern)
++		val = (pattern - 1) | OV9734_TEST_PATTERN_ENABLE;
++	else
++		val = OV9734_TEST_PATTERN_DISABLE;
++
++	return ov9734_write_reg(ov9734->client, OV9734_REG_TEST_PATTERN, OV9734_REG_VALUE_08BIT, val);
++}
++#endif
++static void ov9734_get_module_inf(struct ov9734 *ov9734,
++				  struct rkmodule_inf *inf)
++{
++	memset(inf, 0, sizeof(*inf));
++	strlcpy(inf->base.sensor, OV9734_NAME, sizeof(inf->base.sensor));
++	strlcpy(inf->base.module, ov9734->module_name,
++		sizeof(inf->base.module));
++	strlcpy(inf->base.lens, ov9734->len_name, sizeof(inf->base.lens));
++}
++
++static long ov9734_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	long ret = 0;
++	u32 stream = 0;
++
++	switch (cmd) {
++	case RKMODULE_GET_MODULE_INFO:
++		ov9734_get_module_inf(ov9734, (struct rkmodule_inf *)arg);
++		break;
++	case RKMODULE_SET_QUICK_STREAM:
++
++		stream = *((u32 *)arg);
++
++		if (stream)
++			ov9734_write_reg(ov9734->client, OV9734_REG_CTRL_MODE, OV9734_REG_VALUE_08BIT, OV9734_MODE_STREAMING);
++		else
++			ov9734_write_reg(ov9734->client, OV9734_REG_CTRL_MODE, OV9734_REG_VALUE_08BIT, OV9734_MODE_SW_STANDBY);
++		break;
++	default:
++		ret = -ENOTTY;
++		break;
++	}
++
++	return ret;
++}
++
++#ifdef CONFIG_COMPAT
++static long ov9734_compat_ioctl32(struct v4l2_subdev *sd,
++				  unsigned int cmd, unsigned long arg)
++{
++	void __user *up = compat_ptr(arg);
++	struct rkmodule_inf *inf;
++	struct rkmodule_awb_cfg *cfg;
++	long ret;
++	u32 stream = 0;
++
++	switch (cmd) {
++	case RKMODULE_GET_MODULE_INFO:
++		inf = kzalloc(sizeof(*inf), GFP_KERNEL);
++		if (!inf) {
++			ret = -ENOMEM;
++			return ret;
++		}
++
++		ret = ov9734_ioctl(sd, cmd, inf);
++		if (!ret)
++			ret = copy_to_user(up, inf, sizeof(*inf));
++		kfree(inf);
++		break;
++	case RKMODULE_AWB_CFG:
++		cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
++		if (!cfg) {
++			ret = -ENOMEM;
++			return ret;
++		}
++
++		ret = copy_from_user(cfg, up, sizeof(*cfg));
++		if (!ret)
++			ret = ov9734_ioctl(sd, cmd, cfg);
++		kfree(cfg);
++		break;
++	case RKMODULE_SET_QUICK_STREAM:
++		ret = copy_from_user(&stream, up, sizeof(u32));
++		if (!ret)
++			ret = ov9734_ioctl(sd, cmd, &stream);
++		break;
++	default:
++		ret = -ENOIOCTLCMD;
++		break;
++	}
++
++	return ret;
++}
++#endif
++
++static int __ov9734_start_stream(struct ov9734 *ov9734)
++{
++	int ret;
++	printk("arley_ov9734 __ov9734_start_stream start\n");
++	if(camera_id == OV9734_CHIP_ID){
++		printk("arley_ov9734 camera_id == OV9734_CHIP_ID\n");
++		ret = ov9734_write_array(ov9734->client, hs_ov9734_1280x720_regs);
++	}else if(camera_id == OH01A10_CHIP_ID){
++		printk("arley_ov9734 camera_id == OH01A10_CHIP_ID\n");
++		ret = ov9734_write_array(ov9734->client, oh01a10_1280x720_regs);
++	}
++	if (ret)
++		return ret;
++
++	/* In case these controls are set before streaming */
++	mutex_unlock(&ov9734->mutex);
++	ret = v4l2_ctrl_handler_setup(&ov9734->ctrl_handler);
++	mutex_lock(&ov9734->mutex);
++	if (ret)
++		return ret;
++
++	return ov9734_write_reg(ov9734->client, OV9734_REG_CTRL_MODE, OV9734_REG_VALUE_08BIT, OV9734_MODE_STREAMING);
++}
++
++static int __ov9734_stop_stream(struct ov9734 *ov9734)
++{
++	return ov9734_write_reg(ov9734->client, OV9734_REG_CTRL_MODE, OV9734_REG_VALUE_08BIT, OV9734_MODE_SW_STANDBY);
++}
++
++static int ov9734_s_stream(struct v4l2_subdev *sd, int on)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++#if OV9734_PM_RUNTIME
++	struct i2c_client *client = ov9734->client;
++#endif
++	int ret = 0;
++
++	mutex_lock(&ov9734->mutex);
++	on = !!on;
++	if (on == ov9734->streaming)
++		goto unlock_and_return;
++
++	if (on) {
++#if OV9734_PM_RUNTIME
++		ret = pm_runtime_get_sync(&client->dev);
++		if (ret < 0) {
++			pm_runtime_put_noidle(&client->dev);
++			goto unlock_and_return;
++		}
++#endif
++		ret = __ov9734_start_stream(ov9734);
++		if (ret) {
++			v4l2_err(sd, "start stream failed while write regs\n");
++#if OV9734_PM_RUNTIME
++			pm_runtime_put(&client->dev);
++#endif
++			goto unlock_and_return;
++		}
++	} else {
++		__ov9734_stop_stream(ov9734);
++#if OV9734_PM_RUNTIME
++		pm_runtime_put(&client->dev);
++#endif
++	}
++
++	ov9734->streaming = on;
++
++unlock_and_return:
++	mutex_unlock(&ov9734->mutex);
++
++	return ret;
++}
++
++static int ov9734_s_power(struct v4l2_subdev *sd, int on)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	struct i2c_client *client = ov9734->client;
++	int ret = 0;
++
++	dev_info(&client->dev, "arley_ov9734 s_power:%d", on);
++	mutex_lock(&ov9734->mutex);
++
++	if (ov9734->power_on == !!on)
++		goto unlock_and_return;
++
++	if (on) {
++#if OV9734_PM_RUNTIME
++		ret = pm_runtime_get_sync(&client->dev);
++		if (ret < 0) {
++			pm_runtime_put_noidle(&client->dev);
++			goto unlock_and_return;
++		}
++#endif
++		ov9734->power_on = true;
++	} else {
++#if OV9734_PM_RUNTIME
++		pm_runtime_put(&client->dev);
++#endif
++		ov9734->power_on = false;
++	}
++
++unlock_and_return:
++	mutex_unlock(&ov9734->mutex);
++
++	return ret;
++}
++
++static int __ov9734_power_on(struct ov9734 *ov9734)
++{
++	int ret;
++	struct device *dev = &ov9734->client->dev;
++
++	dev_info(dev, "arley_ov9734 power on");
++	if (!IS_ERR_OR_NULL(ov9734->pins_default)) {
++		ret = pinctrl_select_state(ov9734->pinctrl,
++					   ov9734->pins_default);
++		if (ret < 0)
++			dev_err(dev, "could not set pins\n");
++	}
++
++	ret = clk_set_rate(ov9734->xvclk, OV9734_XVCLK_FREQ);
++	if (ret < 0)
++		dev_warn(dev, "Failed to set xvclk rate\n");
++	if (clk_get_rate(ov9734->xvclk) != OV9734_XVCLK_FREQ)
++		dev_warn(dev, "xvclk mismatched\n");
++	ret = clk_prepare_enable(ov9734->xvclk);
++	if (ret < 0) {
++		dev_err(dev, "Failed to enable xvclk\n");
++		goto err_clk;
++	}
++
++	/* At least 20us between Reset and I2C communication */
++	usleep_range(20, 30);
++
++	return 0;
++
++err_clk:
++	clk_disable_unprepare(ov9734->xvclk);
++	return ret;
++}
++
++static void __ov9734_power_off(struct ov9734 *ov9734)
++{
++	struct device *dev = &ov9734->client->dev;
++	dev_info(dev, "arley_ov9734 power off");
++	clk_disable_unprepare(ov9734->xvclk);
++}
++
++static int ov9734_runtime_resume(struct device *dev)
++{
++	struct i2c_client *client = to_i2c_client(dev);
++	struct v4l2_subdev *sd = i2c_get_clientdata(client);
++	struct ov9734 *ov9734 = to_ov9734(sd);
++
++	dev_info(&client->dev, "resume");
++	return __ov9734_power_on(ov9734);
++}
++
++static int ov9734_runtime_suspend(struct device *dev)
++{
++	struct i2c_client *client = to_i2c_client(dev);
++	struct v4l2_subdev *sd = i2c_get_clientdata(client);
++	struct ov9734 *ov9734 = to_ov9734(sd);
++
++	dev_info(&client->dev, "suspend");
++	__ov9734_power_off(ov9734);
++
++	return 0;
++}
++#ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
++static int ov9734_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	struct v4l2_mbus_framefmt *try_fmt =
++				v4l2_subdev_get_try_format(sd, fh->pad, 0);
++	const struct ov9734_mode *def_mode = &supported_modes[0];
++
++	mutex_lock(&ov9734->mutex);
++	/* Initialize try_fmt */
++	try_fmt->width = def_mode->width;
++	try_fmt->height = def_mode->height;
++	if(camera_id == OV9734_CHIP_ID){
++		try_fmt->code = OV9734_PIX_FORMAT;
++	}else if(camera_id == OH01A10_CHIP_ID){
++		try_fmt->code = OH01A10_PIX_FORMAT;
++	}
++	try_fmt->field = V4L2_FIELD_NONE;
++
++	mutex_unlock(&ov9734->mutex);
++	/* No crop or compose */
++
++	return 0;
++}
++#endif
++static int ov9734_enum_frame_interval(struct v4l2_subdev *sd,
++	struct v4l2_subdev_pad_config *cfg,
++	struct v4l2_subdev_frame_interval_enum *fie)
++{
++
++	if (fie->index >= ARRAY_SIZE(supported_modes))
++		return -EINVAL;
++
++	if(camera_id == OV9734_CHIP_ID){
++		fie->code = OV9734_PIX_FORMAT;
++	}else if(camera_id == OH01A10_CHIP_ID){
++		fie->code = OH01A10_PIX_FORMAT;
++	}
++	fie->width = supported_modes[fie->index].width;
++	fie->height = supported_modes[fie->index].height;
++	fie->interval = supported_modes[fie->index].max_fps;
++	return 0;
++}
++
++
++static int ov9734_g_frame_interval(struct v4l2_subdev *sd,
++				   struct v4l2_subdev_frame_interval *fi)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	const struct ov9734_mode *mode = ov9734->cur_mode;
++
++	if (ov9734->streaming)
++		fi->interval = ov9734->cur_fps;
++	else
++		fi->interval = mode->max_fps;
++
++
++	return 0;
++}
++
++static const struct ov9734_mode *ov9734_find_mode(struct ov9734 *ov9734, int fps)
++{
++	const struct ov9734_mode *mode = NULL;
++	const struct ov9734_mode *match = NULL;
++	int cur_fps = 0;
++	int i = 0;
++	printk("arley_ov9734 ov9734_find_mode\n");
++	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
++		mode = &supported_modes[i];
++		if (mode->width == ov9734->cur_mode->width &&
++		    mode->height == ov9734->cur_mode->height) {
++			printk("arley_ov9734 ov9734_find_mode 001\n");
++			cur_fps = DIV_ROUND_CLOSEST(mode->max_fps.denominator, mode->max_fps.numerator);
++			if (cur_fps == fps) {
++				match = mode;
++				break;
++			}
++		}
++	}
++	return match;
++}
++
++static int ov9734_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame_interval *fi)
++{
++	struct ov9734 *ov9734 = to_ov9734(sd);
++	const struct ov9734_mode *mode = NULL;
++	struct v4l2_fract *fract = &fi->interval;
++	s64 h_blank, vblank_def;
++	int fps;
++
++	if (ov9734->streaming)
++		return -EBUSY;
++
++	if (fi->pad != 0)
++		return -EINVAL;
++
++	if (fract->numerator == 0) {
++		v4l2_err(sd, "error param, check interval param\n");
++		return -EINVAL;
++	}
++	fps = DIV_ROUND_CLOSEST(fract->denominator, fract->numerator);
++	mode = ov9734_find_mode(ov9734, fps);
++	if (mode == NULL) {
++		v4l2_err(sd, "couldn't match fi\n");
++		return -EINVAL;
++	}
++
++	ov9734->cur_mode = mode;
++
++	h_blank = mode->hts_def - mode->width;
++	__v4l2_ctrl_modify_range(ov9734->hblank, h_blank,
++				 h_blank, 1, h_blank);
++	vblank_def = mode->vts_def - mode->height;
++	__v4l2_ctrl_modify_range(ov9734->vblank, vblank_def,
++				 OV9734_VTS_MAX - mode->height,
++				 1, vblank_def);
++	ov9734->cur_fps = mode->max_fps;
++	return 0;
++}
++
++static int ov9734_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad, struct v4l2_mbus_config *config)
++{
++	u32 val = 0;
++
++	val = 1 << (OV9734_LANES - 1) |
++	      V4L2_MBUS_CSI2_CHANNEL_0 |
++	      V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
++	config->type = V4L2_MBUS_CSI2_DPHY;
++	config->flags = val;
++
++	return 0;
++}
++
++static const struct dev_pm_ops ov9734_pm_ops = {
++	SET_RUNTIME_PM_OPS(ov9734_runtime_suspend,
++			   ov9734_runtime_resume, NULL)
++};
++
++#ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
++static const struct v4l2_subdev_internal_ops ov9734_internal_ops = {
++	.open = ov9734_open,
++};
++#endif
++
++static const struct v4l2_subdev_core_ops ov9734_core_ops = {
++	.s_power = ov9734_s_power,
++	.ioctl = ov9734_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl32 = ov9734_compat_ioctl32,
++#endif
++};
++
++static const struct v4l2_subdev_video_ops ov9734_video_ops = {
++	.s_stream = ov9734_s_stream,
++	.g_frame_interval = ov9734_g_frame_interval,
++	.s_frame_interval = ov9734_s_frame_interval,
++};
++
++static const struct v4l2_subdev_pad_ops ov9734_pad_ops = {
++	.enum_mbus_code = ov9734_enum_mbus_code,
++	.enum_frame_size = ov9734_enum_frame_sizes,
++	.enum_frame_interval = ov9734_enum_frame_interval,
++	.get_fmt = ov9734_get_fmt,
++	.set_fmt = ov9734_set_fmt,
++	.get_mbus_config = ov9734_g_mbus_config,
++};
++
++static const struct v4l2_subdev_ops ov9734_subdev_ops = {
++	.core	= &ov9734_core_ops,
++	.video	= &ov9734_video_ops,
++	.pad	= &ov9734_pad_ops,
++};
++#if 1
++static int ov9734_set_ctrl(struct v4l2_ctrl *ctrl)
++{
++	struct ov9734 *ov9734 = container_of(ctrl->handler,
++					     struct ov9734, ctrl_handler);
++	struct i2c_client *client = ov9734->client;
++	s64 max;
++	int ret = 0;
++
++	/* Propagate change of current control to all related controls */
++	switch (ctrl->id) {
++	case V4L2_CID_VBLANK:
++			/* Update max exposure while meeting expected vblanking */
++			max = ov9734->cur_mode->height + ctrl->val - OV9734_EXPOSURE_MAX_MARGIN;
++			__v4l2_ctrl_modify_range(ov9734->exposure,
++					 ov9734->exposure->minimum, max,
++					 ov9734->exposure->step,
++					 ov9734->exposure->default_value);
++		break;
++	}
++#if OV9734_PM_RUNTIME
++	if (!pm_runtime_get_if_in_use(&client->dev))
++		return 0;
++#endif
++	switch (ctrl->id) {
++	case V4L2_CID_EXPOSURE:
++		/* 4 least significant bits of expsoure are fractional part */
++		ret = ov9734_write_reg(ov9734->client, OV9734_REG_EXPOSURE, OV9734_REG_VALUE_24BIT, ctrl->val << 4);
++		dev_dbg(&client->dev, "set exposure %d\n", ctrl->val);
++		break;
++	case V4L2_CID_ANALOGUE_GAIN:
++		if(camera_id == OV9734_CHIP_ID){
++			ret = ov9734_write_reg(ov9734->client, OV9734_REG_ANALOG_GAIN, OV9734_REG_VALUE_16BIT, ctrl->val);
++		}else if(camera_id == OH01A10_CHIP_ID){
++			ret = ov9734_write_reg(ov9734->client, OH01A10_REG_ANALOG_GAIN, OV9734_REG_VALUE_16BIT, ctrl->val << 4);
++		}
++		dev_dbg(&client->dev, "set analog gain 0x%x\n", ctrl->val);
++		break;
++	case V4L2_CID_VBLANK:
++		ret = ov9734_write_reg(ov9734->client, OV9734_REG_VTS, OV9734_REG_VALUE_16BIT, ctrl->val + ov9734->cur_mode->height);
++		break;
++	case V4L2_CID_TEST_PATTERN:
++		ret = ov9734_test_pattern(ov9734, ctrl->val);
++		break;
++	default:
++		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
++			 __func__, ctrl->id, ctrl->val);
++		break;
++	}
++#if OV9734_PM_RUNTIME
++	pm_runtime_put(&client->dev);
++#endif
++	return ret;
++}
++#endif
++
++static const struct v4l2_ctrl_ops ov9734_ctrl_ops = {
++	.s_ctrl = ov9734_set_ctrl,
++};
++
++static int ov9734_initialize_controls(struct ov9734 *ov9734)
++{
++	const struct ov9734_mode *mode;
++	struct v4l2_ctrl_handler *handler;
++	struct v4l2_ctrl *ctrl;
++	s64 exposure_max, vblank_def;
++	u32 h_blank;
++	int ret;
++
++	handler = &ov9734->ctrl_handler;
++	mode = ov9734->cur_mode;
++	ret = v4l2_ctrl_handler_init(handler, 8);
++	if (ret)
++		return ret;
++	handler->lock = &ov9734->mutex;
++
++	ctrl= v4l2_ctrl_new_int_menu(handler, NULL, V4L2_CID_LINK_FREQ, 0, 0, link_freq_items);
++	if (ctrl)
++		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++
++	/* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
++
++	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE, 0, OV9734_PIXEL_RATE, 1, OV9734_PIXEL_RATE);
++
++	h_blank = mode->hts_def - mode->width;
++	ov9734->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
++				h_blank, h_blank, 1, h_blank);
++	if (ov9734->hblank)
++		ov9734->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
++
++	vblank_def = mode->vts_def - mode->height;
++	ov9734->vblank = v4l2_ctrl_new_std(handler, &ov9734_ctrl_ops,
++				V4L2_CID_VBLANK, vblank_def,
++				OV9734_VTS_MAX - mode->height,
++				1, vblank_def);
++
++
++	exposure_max = ov9734->cur_mode->vts_def - OV9734_EXPOSURE_MAX_MARGIN;
++	ov9734->exposure = v4l2_ctrl_new_std(handler, &ov9734_ctrl_ops, V4L2_CID_EXPOSURE, OV9734_EXPOSURE_MIN, exposure_max, OV9734_EXPOSURE_STEP, exposure_max);
++
++	ov9734->anal_gain = v4l2_ctrl_new_std(handler, &ov9734_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
++			  OV9734_ANAL_GAIN_MIN, OV9734_ANAL_GAIN_MAX,
++			  OV9734_ANAL_GAIN_STEP, OV9734_ANAL_GAIN_MIN);
++
++	v4l2_ctrl_new_std_menu_items(handler, &ov9734_ctrl_ops,
++				     V4L2_CID_TEST_PATTERN,
++				     ARRAY_SIZE(ov9734_test_pattern_menu) - 1,
++				     0, 0, ov9734_test_pattern_menu);
++
++	if (handler->error) {
++		ret = handler->error;
++		dev_err(&ov9734->client->dev,
++			"Failed to init controls(%d)\n", ret);
++		goto err_free_handler;
++	}
++
++	ov9734->subdev.ctrl_handler = handler;
++
++	return 0;
++
++err_free_handler:
++	v4l2_ctrl_handler_free(handler);
++
++	return ret;
++}
++
++static void update_ov9734_register(u8 value) {
++	int i;
++    for (i = 0; i < ARRAY_SIZE(oh01a10_1280x720_regs); i++) {
++        if (oh01a10_1280x720_regs[i].addr == 0x4885) {
++            oh01a10_1280x720_regs[i].val = value;
++            break;
++        }
++    }
++}
++
++static ssize_t ov9734_device_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
++{
++	u8 value;
++	if (sscanf(buf, "0x%hhx", &value) != 1) {
++		printk("arley_ov9734 reg_write_store get buf failed\n");
++        return -EINVAL;
++    }
++	update_ov9734_register(value);
++	return count;
++}
++static ssize_t ov9734_device_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	return sprintf(buf, "0x%x\n", camera_id);
++}
++static DEVICE_ATTR(ov9734_device,  S_IRUGO | S_IWUSR, ov9734_device_show, ov9734_device_store);
++
++static int ov9734_check_sensor_id(struct ov9734 *ov9734,
++				  struct i2c_client *client)
++{
++	struct device *dev = &ov9734->client->dev;
++	//u32 id = 0;
++	int ret;
++
++	ret = ov9734_read_reg(client, OV9734_REG_CHIP_ID,
++			      OV9734_REG_VALUE_16BIT, &camera_id);
++	if (camera_id != OV9734_CHIP_ID && camera_id != OH01A10_CHIP_ID) {
++		dev_err(dev, "Unexpected sensor camera_id(%06x), ret(%d)\n", camera_id, ret);
++		return -ENODEV;
++	}
++	if(camera_id == OV9734_CHIP_ID){
++		dev_info(dev, "Detected ov9734 camera_id %06x\n", OV9734_CHIP_ID);
++	}else if(camera_id == OH01A10_CHIP_ID){
++		dev_info(dev, "Detected ov9734 camera_id %06x\n", OH01A10_CHIP_ID);
++	}
++	
++	return 0;
++}
++
++static int ov9734_probe(struct i2c_client *client,
++			const struct i2c_device_id *id)
++{
++	struct device *dev = &client->dev;
++	struct device_node *node = dev->of_node;
++	struct ov9734 *ov9734;
++	struct v4l2_subdev *sd;
++	char facing[2];
++	int ret;
++	
++	//msleep(2 * 1000);
++	dev_info(dev, "driver version: %02x.%02x.%02x",
++		DRIVER_VERSION >> 16,
++		(DRIVER_VERSION & 0xff00) >> 8,
++		DRIVER_VERSION & 0x00ff);
++
++	ov9734 = devm_kzalloc(dev, sizeof(*ov9734), GFP_KERNEL);
++	if (!ov9734)
++		return -ENOMEM;
++#if 0
++	ret = of_property_read_u32(node, RKMODULE_CAMERA_MODULE_INDEX,
++				   &ov9734->module_index);
++	ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_FACING,
++				       &ov9734->module_facing);
++	ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_NAME,
++				       &ov9734->module_name);
++	ret |= of_property_read_string(node, RKMODULE_CAMERA_LENS_NAME,
++				       &ov9734->len_name);
++	if (ret) {
++		dev_err(dev, "could not get module information!\n");
++		return -EINVAL;
++	}
++#endif
++	ov9734->client = client;
++	ov9734->cur_mode = &supported_modes[0];
++
++	ov9734->xvclk = devm_clk_get(dev, "xvclk");
++	if (IS_ERR(ov9734->xvclk)) {
++		dev_err(dev, "Failed to get xvclk\n");
++		return -EINVAL;
++	}
++	
++	ov9734->pinctrl = devm_pinctrl_get(dev);
++	if (!IS_ERR(ov9734->pinctrl)) {
++		ov9734->pins_default =
++			pinctrl_lookup_state(ov9734->pinctrl,
++					     OF_CAMERA_PINCTRL_STATE_DEFAULT);
++		if (IS_ERR(ov9734->pins_default))
++			dev_info(dev, "could not get default pinstate\n");
++	} else {
++		dev_info(dev, "no pinctrl\n");
++	}
++
++	mutex_init(&ov9734->mutex);
++
++	sd = &ov9734->subdev;
++	v4l2_i2c_subdev_init(sd, client, &ov9734_subdev_ops);
++	ret = ov9734_initialize_controls(ov9734);
++	if (ret)
++		goto err_destroy_mutex;
++
++	ret = __ov9734_power_on(ov9734);
++	if (ret)
++		goto err_free_handler;
++
++	ret = ov9734_check_sensor_id(ov9734, client);
++	if (ret){
++		printk("arley_ov9734 check ov9734 id error\n");
++		goto err_power_off;		
++	}
++	
++	ret = of_property_read_u32(node, RKMODULE_CAMERA_MODULE_INDEX, &ov9734->module_index);
++	if(camera_id == OV9734_CHIP_ID){
++		//ret = of_property_read_u32(node, RKMODULE_CAMERA_MODULE_INDEX, &ov9734->module_index);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_FACING,
++				       &ov9734->module_facing);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_NAME,
++				       &ov9734->module_name);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_LENS_NAME,
++				       &ov9734->len_name);
++	
++	}else if(camera_id == OH01A10_CHIP_ID){
++		//ret = of_property_read_u32(node, RKMODULE_CAMERA_MODULE_INDEX_OH01A10, &ov9734->module_index);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_FACING_OH01A10,
++				       &ov9734->module_facing);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_MODULE_NAME_OH01A10,
++				       &ov9734->module_name);
++		ret |= of_property_read_string(node, RKMODULE_CAMERA_LENS_NAME_OH01A10,
++				       &ov9734->len_name);
++	}	
++	if (ret) {
++		dev_err(dev, "could not get module information!\n");
++		goto err_power_off;	
++	}		
++#ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
++	sd->internal_ops = &ov9734_internal_ops;
++	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
++		     V4L2_SUBDEV_FL_HAS_EVENTS;
++#endif
++#if defined(CONFIG_MEDIA_CONTROLLER)
++	ov9734->pad.flags = MEDIA_PAD_FL_SOURCE;
++	sd->entity.function = MEDIA_ENT_F_CAM_SENSOR;
++	ret = media_entity_pads_init(&sd->entity, 1, &ov9734->pad);
++	if (ret < 0)
++		goto err_power_off;
++#endif
++
++	memset(facing, 0, sizeof(facing));
++	if (strcmp(ov9734->module_facing, "back") == 0)
++		facing[0] = 'b';
++	else
++		facing[0] = 'f';
++
++	snprintf(sd->name, sizeof(sd->name), "m%02d_%s_%s %s",
++		 ov9734->module_index, facing,
++		 OV9734_NAME, dev_name(sd->dev));
++	ret = v4l2_async_register_subdev_sensor_common(sd);
++	if (ret) {
++		dev_err(dev, "v4l2 async register subdev failed\n");
++		goto err_clean_entity;
++	}
++	
++	//i2c_set_clientdata(client, ov9734);	
++	ret = device_create_file(dev, &dev_attr_ov9734_device);
++    if(ret){
++		 printk("arley_ov9734 device_create_file ov9734 error\n");
++		 device_destroy(dev->class, dev->devt);
++	}else{
++		printk("arley_ov9734 device_create_file ov9734 success\n");
++
++	}	
++	
++#if OV9734_PM_RUNTIME
++	pm_runtime_set_active(dev);
++	pm_runtime_enable(dev);
++	pm_runtime_idle(dev);
++#endif	
++
++	dev_err(dev, "arley_ov9734 v4l2 async register subdev ov9734 sucessfully\n");
++	return 0;
++
++err_clean_entity:
++#if defined(CONFIG_MEDIA_CONTROLLER)
++	media_entity_cleanup(&sd->entity);
++#endif
++err_power_off:
++	__ov9734_power_off(ov9734);
++err_free_handler:
++	v4l2_ctrl_handler_free(&ov9734->ctrl_handler);
++err_destroy_mutex:
++	mutex_destroy(&ov9734->mutex);
++
++	return ret;
++}
++
++static int ov9734_remove(struct i2c_client *client)
++{
++	struct v4l2_subdev *sd = i2c_get_clientdata(client);
++	struct ov9734 *ov9734 = to_ov9734(sd);
++
++	//删除设备文件
++	device_remove_file(&client->dev, &dev_attr_ov9734_device);
++	
++	v4l2_async_unregister_subdev(sd);
++#if defined(CONFIG_MEDIA_CONTROLLER)
++	media_entity_cleanup(&sd->entity);
++#endif
++	v4l2_ctrl_handler_free(&ov9734->ctrl_handler);
++	mutex_destroy(&ov9734->mutex);
++#if OV9734_PM_RUNTIME
++	pm_runtime_disable(&client->dev);
++	if (!pm_runtime_status_suspended(&client->dev))
++		__ov9734_power_off(ov9734);
++	pm_runtime_set_suspended(&client->dev);
++#endif
++	return 0;
++}
++
++#if IS_ENABLED(CONFIG_OF)
++static const struct of_device_id ov9734_of_match[] = {
++	{ .compatible = "ovti,ov9734" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, ov9734_of_match);
++#endif
++
++static const struct i2c_device_id ov9734_match_id[] = {
++	{ "ovti,ov9734", 0 },
++	{ },
++};
++
++static struct i2c_driver ov9734_i2c_driver = {
++	.driver = {
++		.name = OV9734_NAME,
++		.pm = &ov9734_pm_ops,
++		.of_match_table = of_match_ptr(ov9734_of_match),
++	},
++	.probe		= &ov9734_probe,
++	.remove		= &ov9734_remove,
++	.id_table	= ov9734_match_id,
++};
++
++static int __init sensor_mod_init(void)
++{
++	return i2c_add_driver(&ov9734_i2c_driver);
++}
++
++static void __exit sensor_mod_exit(void)
++{
++	i2c_del_driver(&ov9734_i2c_driver);
++}
++
++device_initcall_sync(sensor_mod_init);
++module_exit(sensor_mod_exit);
++
++MODULE_DESCRIPTION("OmniVision ov9734 sensor driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 1f94d0e85b9d..714606c65b76 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -330,3 +330,9 @@ endif # PHYLIB
+ config MICREL_KS8995MA
+ 	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
+ 	depends on SPI
++
++config LINKYUM_PHY
++	tristate "Linkyum PHYs"
++	help
++	  Enables support for Linkyum network PHYs.
++	  Currently supports the LY1211 gigabit PHY.
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 8423e4a6fb3d..c877a69f89e0 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -82,3 +82,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+ obj-$(CONFIG_TERANETICS_PHY)	+= teranetics.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_XILINX_GMII2RGMII) += xilinx_gmii2rgmii.o
++obj-$(CONFIG_LINKYUM_PHY)	+= linkyum.o
+diff --git a/drivers/net/phy/linkyum.c b/drivers/net/phy/linkyum.c
+new file mode 100644
+index 000000000000..e05f2fb622de
+--- /dev/null
++++ b/drivers/net/phy/linkyum.c
+@@ -0,0 +1,1025 @@
++/****************************************************************************
++ *       Copyright (c) 2023 Shanghai Linkyum Microelectronics Co.           *                      
++*****************************************************************************                                                                 
++ * drivers/net/phy/linkyum.c
++ *  
++ * Description : Driver for Ly1211A/S PHYs.  
++*****************************************************************************/
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/unistd.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
++#include <linux/of.h>
++#include <linux/mii.h>
++#include <linux/io.h>
++#include <asm/irq.h>
++#include <linux/uaccess.h>
++
++#ifndef LINUX_VERSION_CODE
++#include <linux/version.h>
++#else
++#define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
++#endif
++
++/* WOL Enable Flag: 
++ * disable by default to enable system WOL feature of phy
++ * please define this phy to 1 otherwise, define it to 0.
++ */
++#define LINKYUM_PHY_WOL_FEATURE_ENABLE                         0
++
++#define LINKYUM_PHY_MODE_SET_ENABLE                            0
++#define LINKYUM_PHY_RXC_DELAY_SET_ENABLE                       0
++#define LINKYUM_PHY_RXC_DELAY_VAL                              0x00
++#define LINKYUM_PHY_CLK_OUT_125M_ENABLE                        1
++
++#define LYPHY_GLB_DISABLE                                      0
++#define LYPHY_GLB_ENABLE                                       1
++#define LYPHY_LINK_DOWN                                        0
++#define LYPHY_LINK_UP                                          1
++/* Mask used for ID comparisons */
++#define LINKYUM_PHY_ID_MASK                                    0xffffffff
++
++/* LY1211 PHY IDs */
++#define LY1211_PHY_ID                                          0xADB40412
++
++/* PHY LED */
++#define LY1211_EXTREG_LED0                                     0x1E33   // 0
++#define LY1211_EXTREG_LED1                                     0x1E34   // 00101111
++#define LY1211_EXTREG_LED2                                     0x1E35   // 0x40
++/* PHY MODE OPSREG*/
++#define LY1211_EXTREG_GET_PORT_PHY_MODE                        0x062B   
++#define LY1211_EXTREG_PHY_MODE_MASK                            0x0070  
++/* Magic Packet MAC address registers */
++#define LINKYUM_MAGIC_PACKET_MAC_ADDR                          0x0229            
++/* Magic Packet MAC Passwd registers */
++#define LINKYUM_MAGIC_PACKET_PASSWD_ADDR                       0x022E   
++
++/* Linyum wol config register */
++#define LINKYUM_WOL_CFG_REG0                                   0x0220
++#define LINKYUM_WOL_CFG_REG1                                   0x0221
++#define LINKYUM_WOL_CFG_REG2                                   0x0222
++#define LINKYUM_WOL_STA_REG                                    0x0223
++/* 8 PHY MODE */
++#define LY1211_EXTREG_PHY_MODE_UDP_TO_RGMII                    0x00  
++#define LY1211_EXTREG_PHY_MODE_FIBER_TO_RGMII                  0x10  
++#define LY1211_EXTREG_PHY_MODE_UTP_OR_FIBER_TO_RGMII           0x20  
++#define LY1211_EXTREG_PHY_MODE_UTP_TO_SGMII                    0x30  
++#define LY1211_EXTREG_PHY_MODE_SGMII_PHY_TO_RGMII_MAC          0x40  
++#define LY1211_EXTREG_PHY_MODE_SGMII_MAC_TO_RGMII_PHY          0x50  
++#define LY1211_EXTREG_PHY_MODE_UTP_TO_FIBER_AUTO               0x60  
++#define LY1211_EXTREG_PHY_MODE_UTP_TO_FIBER_FORCE              0x70  
++
++/* PHY EXTRW OPSREG */
++#define LY1211_EXTREG_ADDR                                     0x0E
++#define LY1211_EXTREG_DATA                                     0x0D
++/* PHY PAGE SPACE */
++#define LYPHY_REG_UTP_SPACE                                    0
++#define LYPHY_REG_FIBER_SPACE                                  1
++
++/* PHY PAGE SELECT */
++#define LY1211_EXTREG_PHY_MODE_PAGE_SELECT                     0x0016
++#define LYPHY_REG_UTP_SPACE_SETADDR                            0x0000
++#define LYPHY_REG_FIBER_SPACE_SETADDR                          0x0100
++//utp
++#define UTP_REG_PAUSE_CAP                                      0x0400    /* Can pause                   */
++#define UTP_REG_PAUSE_ASYM                                     0x0800    /* Can pause asymetrically     */
++//fiber
++#define FIBER_REG_PAUSE_CAP                                    0x0080    /* Can pause                   */
++#define FIBER_REG_PAUSE_ASYM                                   0x0100    /* Can pause asymetrically     */
++
++/* specific status register */
++#define LINKYUM_SPEC_REG                                       0x0011
++
++/* Interrupt Enable Register */
++#define LINKYUM_INTR_REG                                       0x0017  
++/* WOL TYPE */
++#define LINKYUM_WOL_TYPE                                       BIT(0)
++/* WOL Pulse Width */
++#define LINKYUM_WOL_WIDTH1                                     BIT(1)
++#define LINKYUM_WOL_WIDTH2                                     BIT(2)
++/* WOL crc check enable */
++#define LINKYUM_WOL_CRC_CHECK                                  BIT(4)
++/* WOL dest addr check enable */
++#define LINKYUM_WOL_DESTADDR_CHECK                             BIT(5)
++/* WOL Event Interrupt Enable */
++#define LINKYUM_WOL_INTR_EN                                    BIT(2)
++/* WOL Enable */
++#define LINKYUM_WOL_EN                                         BIT(7)
++
++/* GET PHY MODE */
++#define LYPHY_MODE_CURR                                        lyphy_get_port_type(phydev)
++
++enum linkyum_port_type_e
++{
++    LYPHY_PORT_TYPE_UTP,
++    LYPHY_PORT_TYPE_FIBER,
++    LYPHY_PORT_TYPE_COMBO,
++    LYPHY_PORT_TYPE_EXT
++};
++enum linkyum_wol_type_e
++{
++    LYPHY_WOL_TYPE_LEVEL,
++    LYPHY_WOL_TYPE_PULSE,
++    LYPHY_WOL_TYPE_EXT
++};
++
++enum linkyum_wol_width_e
++{
++    LYPHY_WOL_WIDTH_84MS,
++    LYPHY_WOL_WIDTH_168MS,
++    LYPHY_WOL_WIDTH_336MS,
++    LYPHY_WOL_WIDTH_672MS,
++    LYPHY_WOL_WIDTH_EXT
++};
++
++typedef struct linkyum_wol_cfg_s
++{
++    int wolen;
++    int type;
++    int width;
++    int checkcrc;
++    int checkdst;
++}linkyum_wol_cfg_t;
++
++#if (KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE)
++static inline void phy_lock_mdio_bus(struct phy_device *phydev)
++{
++#if (KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE)
++    mutex_lock(&phydev->bus->mdio_lock);
++#else
++    mutex_lock(&phydev->mdio.bus->mdio_lock);
++#endif
++} 
++
++static inline void phy_unlock_mdio_bus(struct phy_device *phydev)
++{
++#if (KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE)
++    mutex_unlock(&phydev->bus->mdio_lock);
++#else
++    mutex_unlock(&phydev->mdio.bus->mdio_lock);
++#endif
++}
++#endif
++
++#if (KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE)
++static inline int __phy_read(struct phy_device *phydev, u32 regnum)
++{
++#if (KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE)
++    struct mii_bus *bus = phydev->bus;
++    int addr = phydev->addr;
++    return bus->read(bus, phydev->addr, regnum);
++#else
++    struct mii_bus *bus = phydev->mdio.bus;
++    int addr = phydev->mdio.addr;
++#endif
++    return bus->read(bus, addr, regnum);
++}
++
++static inline int __phy_write(struct phy_device *phydev, u32 regnum, u16 val)
++{
++#if (KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE)
++    struct mii_bus *bus = phydev->bus;
++    int addr = phydev->addr;
++#else
++    struct mii_bus *bus = phydev->mdio.bus;
++    int addr = phydev->mdio.addr;
++#endif
++    return bus->write(bus, addr, regnum, val);
++}
++#endif
++
++#if (KERNEL_VERSION(4, 12, 0) <= LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE)
++static int genphy_read_mmd_unsupported(struct phy_device *phdev, int devad, u16 regnum)
++{
++    return -EOPNOTSUPP;
++}
++
++static int genphy_write_mmd_unsupported(struct phy_device *phdev, int devnum,
++                 u16 regnum, u16 val)
++{
++    return -EOPNOTSUPP;
++}
++#endif
++
++static int ly1211_phy_ext_read(struct phy_device *phydev, u32 regnum)
++{
++    int ret, val, oldpage = 0, oldval = 0;
++
++    phy_lock_mdio_bus(phydev);
++
++    ret = __phy_read(phydev, LY1211_EXTREG_ADDR);
++    if (ret < 0) 
++        goto err_handle;
++    oldval = ret;
++
++    /* Force change to utp page */
++    ret = __phy_read(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT);//get old page
++    if (ret < 0) 
++        goto err_handle;
++    oldpage = ret;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, LYPHY_REG_UTP_SPACE_SETADDR);
++    if (ret < 0)
++        goto err_handle;
++
++    /* Default utp ext rw */
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, regnum);
++    if (ret < 0)
++        goto err_handle;
++
++    ret = __phy_read(phydev, LY1211_EXTREG_DATA);
++    if (ret < 0)
++        goto err_handle;
++    val = ret;
++
++    /* Recover to old page */
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, oldpage);
++    if (ret < 0) 
++        goto err_handle;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, oldval);
++    if (ret < 0) 
++        goto err_handle;
++    ret = val;
++
++err_handle:
++    phy_unlock_mdio_bus(phydev);
++    return ret;
++}
++
++static int ly1211_phy_ext_write(struct phy_device *phydev, u32 regnum, u16 val)
++{
++    int ret, oldpage = 0, oldval = 0;
++
++    phy_lock_mdio_bus(phydev);
++
++    ret = __phy_read(phydev, LY1211_EXTREG_ADDR);
++    if (ret < 0) 
++        goto err_handle;
++    oldval = ret;
++
++    /* Force change to utp page */
++    ret = __phy_read(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT); //get old page
++    if (ret < 0)
++        goto err_handle;
++    oldpage = ret;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, LYPHY_REG_UTP_SPACE_SETADDR);
++    if (ret < 0)
++        goto err_handle;
++
++    /* Default utp ext rw */
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, regnum);
++    if (ret < 0)
++        goto err_handle;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_DATA, val);
++    if (ret < 0)
++        goto err_handle;
++
++    /* Recover to old page */
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, oldpage);
++    if (ret < 0) 
++        goto err_handle;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, oldval);
++    if (ret < 0) 
++        goto err_handle;
++
++err_handle:
++    phy_unlock_mdio_bus(phydev);
++    return ret;
++
++}
++
++static int linkyum_phy_select_reg_page(struct phy_device *phydev, int space)
++{
++    int ret;
++    if (space == LYPHY_REG_UTP_SPACE)
++        ret = phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, LYPHY_REG_UTP_SPACE_SETADDR);
++    else
++        ret = phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, LYPHY_REG_FIBER_SPACE_SETADDR);
++    return ret;
++}
++
++static int linkyum_phy_get_reg_page(struct phy_device *phydev)
++{
++    return phy_read(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT);
++}
++
++static int linkyum_phy_ext_read(struct phy_device *phydev, u32 regnum)
++{
++    return ly1211_phy_ext_read(phydev, regnum);
++}
++
++
++static int linkyum_phy_ext_write(struct phy_device *phydev, u32 regnum, u16 val)
++{
++    return ly1211_phy_ext_write(phydev, regnum, val);
++}
++
++static int lyphy_page_read(struct phy_device *phydev, int page, u32 regnum)
++{
++    int ret, val, oldpage = 0, oldval = 0;
++    
++    phy_lock_mdio_bus(phydev);
++
++    ret = __phy_read(phydev, LY1211_EXTREG_ADDR);
++    if (ret < 0) 
++        goto err_handle;
++    oldval = ret;
++
++    ret = __phy_read(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT);
++    if (ret < 0) 
++        goto err_handle;
++    oldpage = ret;
++
++    //Select page
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, (page << 8));
++    if (ret < 0) 
++        goto err_handle;
++
++    ret = __phy_read(phydev, regnum);
++    if (ret < 0) 
++        goto err_handle;
++    val = ret;
++
++    /* Recover to old page */
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, oldpage);
++    if (ret < 0) 
++        goto err_handle;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, oldval);
++    if (ret < 0) 
++        goto err_handle;
++    ret = val;
++    
++err_handle:
++    phy_unlock_mdio_bus(phydev);
++    return ret;
++}
++
++static int lyphy_page_write(struct phy_device *phydev, int page, u32 regnum, u16 value)
++{
++    int ret, oldpage = 0, oldval = 0;
++
++    phy_lock_mdio_bus(phydev);
++
++    ret = __phy_read(phydev, LY1211_EXTREG_ADDR);
++    if (ret < 0) 
++        goto err_handle;
++    oldval = ret;
++
++    ret = __phy_read(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT);
++    if (ret < 0) 
++        goto err_handle;
++    oldpage = ret;
++
++    //Select page
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, (page << 8));
++    if(ret<0)
++        goto err_handle;
++
++    ret = __phy_write(phydev, regnum, value);
++    if(ret<0)
++        goto err_handle;
++
++    /* Recover to old page */
++    ret = __phy_write(phydev, LY1211_EXTREG_PHY_MODE_PAGE_SELECT, oldpage);
++    if (ret < 0)
++        goto err_handle;
++
++    ret = __phy_write(phydev, LY1211_EXTREG_ADDR, oldval);
++    if (ret < 0) 
++        goto err_handle;
++        
++err_handle:
++    phy_unlock_mdio_bus(phydev);
++    return ret;
++}
++
++//get port type
++static int lyphy_get_port_type(struct phy_device *phydev)
++{
++    int ret, mode;
++
++    ret = linkyum_phy_ext_read(phydev, LY1211_EXTREG_GET_PORT_PHY_MODE);
++    if (ret < 0)
++        return ret;
++    ret &= LY1211_EXTREG_PHY_MODE_MASK;
++
++    if (ret == LY1211_EXTREG_PHY_MODE_UDP_TO_RGMII || 
++        ret == LY1211_EXTREG_PHY_MODE_UTP_TO_SGMII) {
++        mode = LYPHY_PORT_TYPE_UTP;
++    } else if (ret == LY1211_EXTREG_PHY_MODE_FIBER_TO_RGMII || 
++        ret == LY1211_EXTREG_PHY_MODE_SGMII_PHY_TO_RGMII_MAC || 
++        ret == LY1211_EXTREG_PHY_MODE_SGMII_MAC_TO_RGMII_PHY) {
++        mode = LYPHY_PORT_TYPE_FIBER;
++    } else {
++        mode = LYPHY_PORT_TYPE_COMBO;
++    }
++
++    return mode;
++}
++
++static int ly1121_led_init(struct phy_device *phydev)
++{
++    int ret;
++
++    ret = linkyum_phy_ext_write(phydev, LY1211_EXTREG_LED0, 0x00);
++    if (ret < 0)
++        return ret;
++    ret = linkyum_phy_ext_write(phydev, LY1211_EXTREG_LED1, 0x2F);
++    if (ret < 0)
++        return ret;
++        
++    return linkyum_phy_ext_write(phydev, LY1211_EXTREG_LED2, 0x40);
++}
++
++
++static int lyphy_restart_aneg(struct phy_device *phydev)
++{
++    int ret, ctl;
++
++    ctl = lyphy_page_read(phydev, LYPHY_REG_FIBER_SPACE, MII_BMCR);
++    if (ctl < 0)
++        return ctl;
++    ctl |= BMCR_ANENABLE;
++    ret = lyphy_page_write(phydev, LYPHY_REG_FIBER_SPACE, MII_BMCR, ctl);
++    if (ret < 0)
++        return ret;
++
++    return 0;
++}
++
++int ly1211_config_aneg(struct phy_device *phydev)
++{
++    int ret, phymode, oldpage = 0;
++
++    phymode = LYPHY_MODE_CURR;
++
++    if (phymode == LYPHY_PORT_TYPE_UTP || phymode == LYPHY_PORT_TYPE_COMBO) {
++        oldpage = linkyum_phy_get_reg_page(phydev);
++        if (oldpage < 0)
++            return oldpage;
++        ret = linkyum_phy_select_reg_page(phydev, LYPHY_REG_UTP_SPACE);
++        if (ret < 0)
++            return ret;
++        ret = genphy_config_aneg(phydev);
++        if (ret < 0)
++            return ret;
++        ret = linkyum_phy_select_reg_page(phydev, oldpage);
++        if (ret < 0)
++            return ret;
++    }
++
++    if (phymode == LYPHY_PORT_TYPE_FIBER || phymode == LYPHY_PORT_TYPE_COMBO) {
++        oldpage = linkyum_phy_get_reg_page(phydev);
++        if (oldpage < 0)
++            return oldpage;
++        ret = linkyum_phy_select_reg_page(phydev, LYPHY_REG_FIBER_SPACE);
++        if (ret < 0)
++            return ret;
++        if (AUTONEG_ENABLE != phydev->autoneg) 
++            return genphy_setup_forced(phydev);
++        ret = lyphy_restart_aneg(phydev);
++        if (ret < 0)
++            return ret;
++        ret = linkyum_phy_select_reg_page(phydev, oldpage);
++        if (ret < 0)
++            return ret;
++    }
++    return 0;
++}
++
++#if (LINKYUM_PHY_WOL_FEATURE_ENABLE)
++static void linkyum_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
++{
++    int val = 0;
++
++    wol->supported = WAKE_MAGIC;
++    wol->wolopts = 0;
++
++    val = linkyum_phy_ext_read(phydev, LINKYUM_WOL_CFG_REG1);
++    if (val < 0)
++        return;
++
++    if (val & LINKYUM_WOL_EN)
++        wol->wolopts |= WAKE_MAGIC;
++
++    return;
++}
++
++static int linkyum_wol_en_cfg(struct phy_device *phydev, linkyum_wol_cfg_t wol_cfg)
++{
++    int ret, val0,val1;
++
++    val0 = linkyum_phy_ext_read(phydev, LINKYUM_WOL_CFG_REG0);
++    if (val0 < 0)
++        return val0;
++    val1 = linkyum_phy_ext_read(phydev, LINKYUM_WOL_CFG_REG1);
++    if (val1 < 0)
++        return val1;
++    if (wol_cfg.wolen) {
++        val1 |= LINKYUM_WOL_EN;
++        if (wol_cfg.type == LYPHY_WOL_TYPE_LEVEL) {
++            val0 |= LINKYUM_WOL_TYPE;
++        } else if (wol_cfg.type == LYPHY_WOL_TYPE_PULSE) {
++            val0 &= ~LINKYUM_WOL_TYPE;
++            if (wol_cfg.width == LYPHY_WOL_WIDTH_84MS) {
++                val0 &= ~LINKYUM_WOL_WIDTH1;
++                val0 &= ~LINKYUM_WOL_WIDTH2;
++            } else if (wol_cfg.width == LYPHY_WOL_WIDTH_168MS) {
++                val0 |= LINKYUM_WOL_WIDTH1;
++                val0 &= ~LINKYUM_WOL_WIDTH2;
++            } else if (wol_cfg.width == LYPHY_WOL_WIDTH_336MS) {
++                val0 &= ~LINKYUM_WOL_WIDTH1;
++                val0 |= LINKYUM_WOL_WIDTH2;
++            } else if (wol_cfg.width == LYPHY_WOL_WIDTH_672MS) {
++                val0 |= LINKYUM_WOL_WIDTH1;
++                val0 |= LINKYUM_WOL_WIDTH2;
++            }
++        }
++        if (wol_cfg.checkcrc == LYPHY_GLB_ENABLE)
++            val0 |= LINKYUM_WOL_CRC_CHECK;
++        else 
++            val0 &= ~LINKYUM_WOL_CRC_CHECK;
++        if (wol_cfg.checkdst == LYPHY_GLB_ENABLE)
++            val0 |= LINKYUM_WOL_DESTADDR_CHECK;
++        else 
++            val0 &= ~LINKYUM_WOL_DESTADDR_CHECK;
++    } else {
++        val1 &= ~LINKYUM_WOL_EN;
++    }
++
++    ret = linkyum_phy_ext_write(phydev, LINKYUM_WOL_CFG_REG0, val0);
++    if (ret < 0)
++        return ret;
++    ret = linkyum_phy_ext_write(phydev, LINKYUM_WOL_CFG_REG1, val1);
++    if (ret < 0)
++        return ret;
++    return 0;
++}
++
++static int linkyum_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
++{
++    int ret, val, i, phymode;
++    linkyum_wol_cfg_t wol_cfg;
++
++    phymode = LYPHY_MODE_CURR;
++    memset(&wol_cfg,0,sizeof(linkyum_wol_cfg_t));
++
++    if (wol->wolopts & WAKE_MAGIC) {
++        if (phymode == LYPHY_PORT_TYPE_UTP || phymode == LYPHY_PORT_TYPE_COMBO) {
++        /* Enable the WOL interrupt */
++        val = lyphy_page_read(phydev, LYPHY_REG_UTP_SPACE, LINKYUM_INTR_REG);
++        val |= LINKYUM_WOL_INTR_EN;
++        ret = lyphy_page_write(phydev, LYPHY_REG_UTP_SPACE, LINKYUM_INTR_REG, val);
++        if (ret < 0)
++            return ret;
++        }
++        if (phymode == LYPHY_PORT_TYPE_FIBER || phymode == LYPHY_PORT_TYPE_COMBO) {
++            /* Enable the WOL interrupt */
++            val = lyphy_page_read(phydev, LYPHY_REG_FIBER_SPACE, LINKYUM_INTR_REG);
++            val |= LINKYUM_WOL_INTR_EN;
++            ret = lyphy_page_write(phydev, LYPHY_REG_FIBER_SPACE, LINKYUM_INTR_REG, val);
++            if (ret < 0)
++                return ret;
++        }
++        /* Set the WOL config */
++        wol_cfg.wolen = LYPHY_GLB_ENABLE;
++        wol_cfg.type  = LYPHY_WOL_TYPE_PULSE;
++        wol_cfg.width = LYPHY_WOL_WIDTH_672MS;
++        ret = linkyum_wol_en_cfg(phydev, wol_cfg);
++        if (ret < 0)
++            return ret;
++
++        /* Store the device address for the magic packet */
++        for(i = 0; i < 6; ++i) {
++            ret = linkyum_phy_ext_write(phydev, LINKYUM_MAGIC_PACKET_MAC_ADDR - (i - 1),
++                ((phydev->attached_dev->dev_addr[i - 1])));
++            if (ret < 0)
++                return ret;
++        }
++        /* Set passwd for the magic packet */
++        for(i = 0; i < 6; ++i) {
++            ret = linkyum_phy_ext_write(phydev, LINKYUM_MAGIC_PACKET_PASSWD_ADDR - (i - 1),
++                (i + i*10));
++            if (ret < 0)
++                return ret;
++        }
++    } else {
++        wol_cfg.wolen = LYPHY_GLB_DISABLE;
++        wol_cfg.type  = LYPHY_WOL_TYPE_EXT;
++        wol_cfg.width = LYPHY_WOL_WIDTH_EXT;
++        ret = linkyum_wol_en_cfg(phydev, wol_cfg);
++        if (ret < 0)
++            return ret;
++    }
++
++    return 0;
++}
++#endif
++static int ly1211_rxc_init(struct phy_device *phydev)
++{
++    int ret;
++
++    ret = (linkyum_phy_ext_read(phydev, LY1211_EXTREG_GET_PORT_PHY_MODE) & 
++        LY1211_EXTREG_PHY_MODE_MASK);
++    if (ret < 0)
++        return ret;
++        
++    if ((ret == LY1211_EXTREG_PHY_MODE_UTP_TO_SGMII) || 
++        (ret == LY1211_EXTREG_PHY_MODE_UTP_TO_FIBER_AUTO) ||
++        (ret == LY1211_EXTREG_PHY_MODE_UTP_TO_FIBER_FORCE))
++        return 0;
++
++    // Init rxc and enable rxc
++    ret = linkyum_phy_ext_read(phydev, 0x1E0C);
++    if (ret < 0)
++        return ret;
++    ret = linkyum_phy_ext_write(phydev,0x1E0C, (ret | 0x03));
++    if (ret < 0)
++        return ret;
++
++#if LINKYUM_PHY_RXC_DELAY_SET_ENABLE
++    // Init rxc delay
++    ret = linkyum_phy_ext_write(phydev,0x0282, LINKYUM_PHY_RXC_DELAY_VAL);
++    if (ret < 0)
++        return ret;
++#endif
++
++    return ret;
++}
++static int ly1211_config_opt(struct phy_device *phydev)
++{
++    int ret;
++
++    ret = linkyum_phy_ext_write(phydev, 0x0149 , 0x84);
++    if (ret < 0)
++        return ret;
++
++    ret = linkyum_phy_ext_write(phydev, 0x014A , 0x86);
++    if (ret < 0)
++        return ret;
++
++    ret = linkyum_phy_ext_write(phydev, 0x023C , 0x81);
++    if (ret < 0)
++        return ret;
++    return ret;
++}
++#if LINKYUM_PHY_CLK_OUT_125M_ENABLE
++static int ly1211_clkout_init(struct phy_device *phydev)
++{
++    int ret;
++
++    ret = linkyum_phy_ext_write(phydev, 0x0272 , 0x09);
++    if (ret < 0){
++		return ret;
++	}
++	return 1;
++}
++#endif
++
++#if LINKYUM_PHY_MODE_SET_ENABLE
++//set mode
++static int phy_mode_set(struct phy_device *phydev, u16 phyMode)
++{
++    int ret, num = 0;
++
++    ret = linkyum_phy_ext_read(phydev, 0xC417);
++    if (ret < 0)
++        return ret;
++
++    ret = (ret & 0xF0) | (0x8 | phyMode);
++
++    ret = linkyum_phy_ext_write(phydev, 0xC417, ret);
++    if (ret < 0)
++        return ret;
++
++    while ((linkyum_phy_ext_read(phydev, 0xC415) & 0x07) != phyMode) {
++        msleep(10);
++        if(++num == 5) {
++            printk("Phy Mode Set Time Out!\r\n");
++            break;
++        }
++    }
++
++    while (linkyum_phy_ext_read(phydev, 0xC413) != 0) {
++        msleep(10);
++        if(++num == 10) {
++            printk("Phy Mode Set Time Out!\r\n");
++            break;
++        }
++    }       
++
++    return 0;
++}
++#endif
++
++#if (KERNEL_VERSION(3, 16, 0) > LINUX_VERSION_CODE)
++static int genphy_config_init(struct phy_device *phydev)
++{
++    int val;
++    u32 features;
++
++    features = (SUPPORTED_TP | SUPPORTED_MII
++            | SUPPORTED_AUI | SUPPORTED_FIBRE |
++            SUPPORTED_BNC | SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++
++    /* Do we support autonegotiation? */
++    val = phy_read(phydev, MII_BMSR);
++    if (val < 0)
++        return val;
++
++    if (val & BMSR_ANEGCAPABLE)
++        features |= SUPPORTED_Autoneg;
++
++    if (val & BMSR_100FULL)
++        features |= SUPPORTED_100baseT_Full;
++    if (val & BMSR_100HALF)
++        features |= SUPPORTED_100baseT_Half;
++    if (val & BMSR_10FULL)
++        features |= SUPPORTED_10baseT_Full;
++    if (val & BMSR_10HALF)
++        features |= SUPPORTED_10baseT_Half;
++
++    if (val & BMSR_ESTATEN) {
++        val = phy_read(phydev, MII_ESTATUS);
++        if (val < 0)
++            return val;
++
++        if (val & ESTATUS_1000_TFULL)
++            features |= SUPPORTED_1000baseT_Full;
++        if (val & ESTATUS_1000_THALF)
++            features |= SUPPORTED_1000baseT_Half;
++    }
++
++    phydev->supported &= features;
++    phydev->advertising &= features;
++
++    return 0;
++}
++#endif
++
++int ly1211_config_init(struct phy_device *phydev)
++{
++    int ret, phymode;
++
++#if LINKYUM_PHY_WOL_FEATURE_ENABLE
++    struct ethtool_wolinfo wol;
++#endif
++
++#if LINKYUM_PHY_MODE_SET_ENABLE
++    ret = phy_mode_set(phydev, 0x0);
++    if (ret < 0) 
++        return ret;
++#endif
++    phymode = LYPHY_MODE_CURR;
++
++    if (phymode == LYPHY_PORT_TYPE_UTP || phymode == LYPHY_PORT_TYPE_COMBO) {
++        linkyum_phy_select_reg_page(phydev, LYPHY_REG_UTP_SPACE);
++#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
++        ret = genphy_config_init(phydev);
++#else
++        ret = genphy_read_abilities(phydev);
++#endif
++        if (ret < 0)
++            return ret;
++    } else {
++        linkyum_phy_select_reg_page(phydev, LYPHY_REG_FIBER_SPACE);
++#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
++        ret = genphy_config_init(phydev);
++        if (ret < 0)
++            return ret;
++#else 
++        ret = genphy_read_abilities(phydev);
++        if (ret < 0)
++            return ret;
++#endif
++
++#if (KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE)
++        phydev->supported |= SUPPORTED_1000baseT_Full;
++        phydev->advertising |= SUPPORTED_1000baseT_Full;
++#else
++        linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
++                 phydev->supported, ESTATUS_1000_TFULL);
++        linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
++                 phydev->advertising, ESTATUS_1000_TFULL);
++#endif
++    }
++
++    ret = ly1211_rxc_init(phydev);
++    if (ret < 0)
++        return ret;
++
++    ret = ly1211_config_opt(phydev);
++    if (ret < 0)
++        return ret;
++
++#if LINKYUM_PHY_CLK_OUT_125M_ENABLE
++    ret = ly1211_clkout_init(phydev);
++    if (ret < 0)
++        return ret;
++#endif
++
++#if LINKYUM_PHY_WOL_FEATURE_ENABLE
++    wol.wolopts = 0;
++    wol.supported = WAKE_MAGIC;
++    wol.wolopts |= WAKE_MAGIC;
++    linkyum_set_wol(phydev, &wol);
++#endif
++
++    return ly1121_led_init(phydev);
++}
++
++static int ly1211_update_link(struct phy_device *phydev)
++{
++    int ret, val, phymode;
++
++    phymode = LYPHY_MODE_CURR;
++
++    if (phymode == LYPHY_PORT_TYPE_UTP || phymode == LYPHY_PORT_TYPE_COMBO) {
++        /* Do a fake read */
++        ret = lyphy_page_read(phydev, LYPHY_REG_UTP_SPACE, MII_BMSR);
++        if (ret < 0)
++            return ret;
++
++        /* Read link and autonegotiation status */
++        ret = lyphy_page_read(phydev, LYPHY_REG_UTP_SPACE, MII_BMSR);
++        if (ret < 0)
++            return ret;
++        if ((ret & BMSR_LSTATUS) == 0) {
++            phydev->link = LYPHY_LINK_DOWN;
++            return LYPHY_REG_UTP_SPACE;
++        } else {
++            phydev->link = LYPHY_LINK_UP;
++            return LYPHY_REG_UTP_SPACE;
++        }
++    }
++
++    if (phymode == LYPHY_PORT_TYPE_FIBER || phymode == LYPHY_PORT_TYPE_COMBO) {
++        /* Do a fake read */
++        ret = lyphy_page_read(phydev, LYPHY_REG_FIBER_SPACE, MII_BMSR);
++        if (ret < 0)
++            return ret;
++
++        /* Read link and autonegotiation status */
++        ret = lyphy_page_read(phydev, LYPHY_REG_FIBER_SPACE, MII_BMSR);
++        if (ret < 0)
++            return ret;
++
++        if ((ret & BMSR_LSTATUS) == 0) {
++            phydev->link = LYPHY_LINK_DOWN;
++            return LYPHY_REG_UTP_SPACE;
++        } else {
++            val = linkyum_phy_ext_read(phydev, LY1211_EXTREG_GET_PORT_PHY_MODE) & LY1211_EXTREG_PHY_MODE_MASK;
++            if (val < 0)
++                return val;
++            if (val != LY1211_EXTREG_PHY_MODE_SGMII_MAC_TO_RGMII_PHY) {
++                phydev->link = LYPHY_LINK_UP;
++            } else {
++                ret = lyphy_page_read(phydev, LYPHY_REG_FIBER_SPACE, 0x1C);
++                if ((ret & 0x8000) == 0) {
++                    phydev->link = LYPHY_LINK_DOWN;
++                } else {
++                    phydev->link = LYPHY_LINK_UP;
++                }
++            }
++            return LYPHY_REG_FIBER_SPACE;
++        }
++    }
++    return LYPHY_REG_UTP_SPACE;
++}
++
++static int ly1211_read_status(struct phy_device *phydev)
++{
++    int val, ret, lpa, page;
++    
++    /* Update the link, but return if there was an error */
++    ret = ly1211_update_link(phydev);
++    if (ret < 0)
++        return ret;
++    page = ret;
++
++    phydev->speed = SPEED_10;
++    phydev->duplex = DUPLEX_HALF;
++    phydev->pause = 0;
++    phydev->asym_pause = 0;
++
++    val = lyphy_page_read(phydev, page, LINKYUM_SPEC_REG);
++    if (val < 0)
++        return val;
++
++    lpa = lyphy_page_read(phydev, page, MII_LPA);
++    if (lpa < 0)
++        return lpa;
++
++    if (val & 0x02) 
++        phydev->duplex = DUPLEX_FULL;
++    if ((val & 0x18) == 0x10) 
++         phydev->speed = SPEED_1000;
++    if ((val & 0x18) == 0x08) 
++        phydev->speed = SPEED_100;
++    if (phydev->duplex == DUPLEX_FULL) {
++        if(page == LYPHY_REG_UTP_SPACE) {
++            phydev->pause = lpa & UTP_REG_PAUSE_CAP ? 1 : 0;
++            phydev->asym_pause = lpa & UTP_REG_PAUSE_ASYM ? 1 : 0;
++        } else {
++            phydev->pause = lpa & FIBER_REG_PAUSE_CAP ? 1 : 0;
++            phydev->asym_pause = lpa & FIBER_REG_PAUSE_ASYM ? 1 : 0;
++        }
++    } 
++    return 0;
++}
++static struct phy_driver ly_phy_drivers[] = {
++    {
++        .phy_id             = LY1211_PHY_ID,
++        .phy_id_mask        = LINKYUM_PHY_ID_MASK,
++        .name               = "LY1211A/S Gigabit Ethernet",
++        .features           = PHY_GBIT_FEATURES,
++        .flags              = PHY_POLL,
++        .config_init        = ly1211_config_init,
++        .config_aneg        = ly1211_config_aneg,
++        .read_status        = ly1211_read_status,
++#if (KERNEL_VERSION(4, 12, 0) <= LINUX_VERSION_CODE)
++        .write_mmd          = genphy_write_mmd_unsupported,
++        .read_mmd           = genphy_read_mmd_unsupported,
++#endif
++        .suspend            = genphy_suspend,
++        .resume             = genphy_resume,
++#if LINKYUM_PHY_WOL_FEATURE_ENABLE
++        .get_wol            = &linkyum_get_wol,
++        .set_wol            = &linkyum_set_wol,
++#endif
++    },
++};
++
++#if (KERNEL_VERSION(4, 0, 0) > LINUX_VERSION_CODE)
++static int ly_phy_drivers_register(struct phy_driver *phy_drvs, int size)
++{
++    int i, j;
++    int ret;
++
++    for (i = 0; i < size; i++) {
++        ret = phy_driver_register(&phy_drvs[i]);
++        if (ret)
++            goto err;
++    }
++
++    return 0;
++
++err:
++        for (j = 0; j < i; j++)
++            phy_driver_unregister(&phy_drvs[j]);
++
++    return ret;
++}
++
++static void ly_phy_drivers_unregister(struct phy_driver *phy_drvs, int size)
++{
++    int i;
++
++    for (i = 0; i < size; i++)
++        phy_driver_unregister(&phy_drvs[i]);
++}
++
++static int __init ly_phy_init(void)
++{
++    return ly_phy_drivers_register(ly_phy_drivers, ARRAY_SIZE(ly_phy_drivers));
++}
++
++static void __exit ly_phy_exit(void)
++{
++    ly_phy_drivers_unregister(ly_phy_drivers, ARRAY_SIZE(ly_phy_drivers));
++}
++
++module_init(ly_phy_init);
++module_exit(ly_phy_exit);
++#else
++/* for linux 4.x */
++module_phy_driver(ly_phy_drivers);
++#endif
++
++static struct mdio_device_id __maybe_unused linkyum_phy_tbl[] = {
++    { LY1211_PHY_ID, LINKYUM_PHY_ID_MASK },
++    {},
++};
++
++MODULE_DEVICE_TABLE(mdio, linkyum_phy_tbl);
++
++MODULE_DESCRIPTION("Linkyum PHY driver");
++MODULE_AUTHOR("Huxl");
++MODULE_LICENSE("GPL");
++
+-- 
+2.43.0
+

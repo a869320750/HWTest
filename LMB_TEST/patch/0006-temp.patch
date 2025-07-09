@@ -1,0 +1,35 @@
+From 59774d30d2644fb97861136c2373d536b2ec5161 Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Fri, 4 Jul 2025 08:54:45 +0800
+Subject: [PATCH 06/11] temp
+
+---
+ arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index 250b8cf2796a..8ab95a2c87f4 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -972,6 +972,7 @@ &usbdp_phy0 {
+ 
+ 	orientation-switch;
+ 	svid = <0xff01>;
++	phy-supply = <&vcc5v0_host>;
+ 	//sbu1-dc-gpios = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
+ 	//sbu2-dc-gpios = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+ 
+@@ -998,8 +999,8 @@ &usbdp_phy1 {
+ &usbdrd_dwc3_0 {
+ 	status = "okay";
+ 	extcon = <&u2phy0>;
+-	dr_mode = "otg";
+-	usb-role-switch;
++	dr_mode = "host";
++	// usb-role-switch;
+ 	port {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+-- 
+2.43.0
+

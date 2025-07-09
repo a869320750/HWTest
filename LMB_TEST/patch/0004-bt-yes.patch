@@ -1,0 +1,61 @@
+From f8dce2ea1c5f33357989bf43bbc6f191fe1dc637 Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Wed, 2 Jul 2025 17:56:27 +0800
+Subject: [PATCH 04/11] bt yes
+
+---
+ arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index d892aebcee1f..aa6f7f7262a4 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -85,7 +85,8 @@ rtc32k: rtc32k {
+ 		compatible = "fixed-clock";
+ 		#clock-cells = <0>;
+ 		clock-frequency = <32768>;
+-		clock-output-names = "rtc32k";
++		clock-output-names = "ext_clock";
++		status = "okay";  // ← 确保这个时钟是启用的
+ 	};
+ /*
+ 	es8388_sound: es8388-sound {
+@@ -316,12 +317,12 @@ wireless_bluetooth: wireless-bluetooth {
+ 		// clock-names = "ext_clock";
+ 		uart_rts_gpios = <&gpio4 RK_PC4 GPIO_ACTIVE_LOW>;
+ 		pinctrl-names = "default", "rts_gpio";
+-		pinctrl-0 = <&uart9m0_rtsn &bt_wake_gpio &bt_host_wake_gpio &clk32k_out1>;
++		pinctrl-0 = <&bt_wake_gpio &bt_host_wake_gpio &clk32k_out1>;
+ 		// pinctrl-0 = <&uart9m0_rtsn>, <&bt_reg_on_gpio>, <&bt_wake_gpio>, <&bt_host_wake_gpio>;
+     
+ 		// 必须添加的时钟引用
+ 		clocks = <&rtc32k>;
+-		clock-names = "ref_wifi_clk";
++		clock-names = "ext_clock";
+ 
+ 		pinctrl-1 = <&uart9_gpios>;
+ 		// BT,reset_gpio    = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>; // GPIO0_C6_u BT_REG_ON_H
+@@ -333,7 +334,7 @@ wireless_bluetooth: wireless-bluetooth {
+ 	wireless_wlan: wireless-wlan {
+ 		compatible = "wlan-platdata";
+ 		clocks = <&rtc32k>;
+-		clock-names = "ref_wifi_clk";
++		clock-names = "ext_clock";
+ 		wifi_chip_type = "ap6354";
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wifi_host_wake_irq>;
+@@ -904,8 +905,8 @@ &sdio {
+ 
+ &uart9 {
+ 	status = "okay";
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn>;
++	// pinctrl-names = "default";
++	// pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn>;
+ };
+ 
+ &uart0 {
+-- 
+2.43.0
+

@@ -1,0 +1,61 @@
+From 63e812c278639e1e036b9792fcb6e970fccbade6 Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Mon, 7 Jul 2025 09:29:38 +0800
+Subject: [PATCH 09/11] usb3.0 OK
+
+Signed-off-by: zd <root@DESKTOP-QH0N003.localdomain>
+---
+ arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi | 5 +++--
+ arch/arm64/configs/rockchip_linux_defconfig       | 2 ++
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index 6b29212f3373..89e3560a53ac 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -249,11 +249,12 @@ vcc3v3_pcie30: vcc3v3-pcie30 {
+ 		regulator-min-microvolt = <3300000>;
+ 		regulator-max-microvolt = <3300000>;
+ 		enable-active-high;
+-		//gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
++		gpios = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
+ 		pinctrl-names = "default";
+ 		// pinctrl-0 = <&wifi_poweren_gpio>;
+ 		startup-delay-us = <5000>;
+ 		vin-supply = <&vcc12v_dcin>;
++		status = "okay";
+ 	};
+ 
+ 	vcc5v0_host: vcc5v0-host {
+@@ -706,7 +707,7 @@ &mipi_dcphy1 {
+ };
+ 
+ &pcie2x1l0 {
+-	reset-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_LOW>;
+ 	rockchip,skip-scan-in-resume;
+ 	//rockchip,perst-inactive-ms = <500>;
+ 	vpcie3v3-supply = <&vcc3v3_pcie30>;
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 0d2a742bb49f..0b646c2eb2ad 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -123,6 +123,7 @@ CONFIG_BT_HIDP=y
+ CONFIG_BT_HCIBTUSB=y
+ CONFIG_BT_HCIUART=y
+ CONFIG_BT_HCIUART_ATH3K=y
++CONFIG_BT_HCIUART_BCM=y
+ CONFIG_BT_HCIBFUSB=y
+ CONFIG_BT_HCIVHCI=y
+ CONFIG_BT_MRVL=y
+@@ -247,6 +248,7 @@ CONFIG_SERIAL_8250_NR_UARTS=10
+ CONFIG_SERIAL_8250_RUNTIME_UARTS=10
+ CONFIG_SERIAL_8250_DW=y
+ CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_DEV_BUS=y
+ CONFIG_HW_RANDOM=y
+ CONFIG_HW_RANDOM_ROCKCHIP=y
+ CONFIG_TCG_TPM=y
+-- 
+2.43.0
+

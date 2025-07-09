@@ -48,18 +48,61 @@ dmesg | grep -i phy | tail -n 30
 dmesg | grep -i gmac | tail -n 30
 
 echo "\n===== 3. 链路状态 ====="
-ethtool eth0 2>/dev/null
+if command -v ethtool >/dev/null; then
+  ethtool eth0
+else
+  echo "ethtool 未安装，跳过链路详细状态检测"
+fi
 
 echo "\n===== 4. 获取IP地址（DHCP） ====="
-udhcpc -i eth0 2>/dev/null || dhclient eth0 2>/dev/null
+
+# 尝试后台获取IP，超时自动继续
+echo "尝试通过 udhcpc 获取IP（最多5秒）..."
+udhcpc -i eth0 2>/dev/null &
+udhcpc_pid=$!
+timeout=5
+while kill -0 $udhcpc_pid 2>/dev/null && [ $timeout -gt 0 ]; do
+  sleep 1
+  timeout=$((timeout-1))
+done
+if kill -0 $udhcpc_pid 2>/dev/null; then
+  echo "udhcpc 超时，自动终止"
+  kill $udhcpc_pid
+fi
+
+# 如果还没获取到IP，再尝试 dhclient（同样限时5秒）
+if ! ifconfig eth0 | grep -q 'inet '; then
+  echo "尝试通过 dhclient 获取IP（最多5秒）..."
+  dhclient eth0 2>/dev/null &
+  dhclient_pid=$!
+  timeout=5
+  while kill -0 $dhclient_pid 2>/dev/null && [ $timeout -gt 0 ]; do
+    sleep 1
+    timeout=$((timeout-1))
+  done
+  if kill -0 $dhclient_pid 2>/dev/null; then
+    echo "dhclient 超时，自动终止"
+    kill $dhclient_pid
+  fi
+fi
+
+echo "\n===== 5. ARP表 ====="
+arp -a
+
+echo "\n===== 6. 路由表 ====="
+route -n
+ip route
+
+echo "\n===== 7. 网口收发包统计 ====="
+ifconfig eth0
 
 # 连通性测试（可按需修改目标IP）
-echo "\n===== 5. 网络连通性测试 ====="
+echo "\n===== 8. 网络连通性测试 ====="
 ping -c 4 192.168.1.1 2>/dev/null
 
 # 性能测试（如有iperf3）
 if command -v iperf3 >/dev/null; then
-  echo "\n===== 6. 网络性能测试（iperf3） ====="
+  echo "\n===== 9. 网络性能测试（iperf3） ====="
   iperf3 -c 192.168.1.1 -t 5 2>/dev/null
 fi
 
@@ -67,3 +110,22 @@ echo "\n===== 检查完成，请结合回显分析以太网功能 ====="
 ```
 
 > 如需定制检测内容（如指定网口名、目标IP等），可在脚本中补充相应命令。
+
+```bash
+ifconfig
+ifconfig wlan0 down
+ifconfig lo down
+
+echo 124 > /sys/class/gpio/export
+cat /sys/class/gpio/gpio124/value
+cat /sys/class/gpio/gpio124/direction
+echo out > /sys/class/gpio/gpio124/direction
+echo 0 > /sys/class/gpio/gpio124/value
+sleep 3
+echo 1 > /sys/class/gpio/gpio124/value
+
+ifconfig eth0 192.168.253.100 up
+ifconfig
+
+ping 192.168.253.253
+```

@@ -10,3 +10,19 @@
 - nvme硬盘测试
 
 ...（详细命令、脚本、经验可补充）
+
+```bash
+dmesg | grep pci
+
+lsblk
+
+fdisk -l
+
+dmesg | grep -i nvme
+
+ ls /dev/nvme*
+
+
+dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=10 oflag=direct
+dd if=/dev/nvme0n1 of=/dev/null bs=1M count=10 iflag=direct
+```

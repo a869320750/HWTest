@@ -61,8 +61,8 @@ ctrl_interface_group=0
 update_config=1
 
 network={
-    ssid="iQOO Neo9S Pro"   # 换成你的WIFI名字
-    psk="12345678"          # 换成你的WIFI密码
+    ssid="DKKJ_SH_5G"   # 换成你的WIFI名字
+    psk="dkkj1125"      # 换成你的WIFI密码
 }
 EOF
 
@@ -76,6 +76,33 @@ iw wlan0 link
 udhcpc -i wlan0
 ```
 
+```sh
+# 1. 查看蓝牙适配器状态
+hciconfig -a
+
+# 2. 启动蓝牙适配器（如未UP）
+hciconfig hci0 up
+
+# 3. 扫描附近蓝牙设备
+hcitool scan
+
+# 4. 进入交互式蓝牙管理，进行配对/连接/信任等
+bluetoothctl
+# 在 bluetoothctl 交互界面中依次输入：
+# power on
+# agent on
+# default-agent
+# scan on
+# pair <MAC>
+# connect <MAC>
+# trust <MAC>
+
+# 5. 查看已配对设备
+bluetoothctl paired-devices
+
+# 6. 查看蓝牙服务
+sdptool browse <MAC>
+```
 
 ### 6.5 调试总结与问题分析
 ...existing code...

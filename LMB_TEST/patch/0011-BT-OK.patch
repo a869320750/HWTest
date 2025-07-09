@@ -1,0 +1,94 @@
+From 3c77b7fa27f3fa6bceff8e880ed78c0924acfcff Mon Sep 17 00:00:00 2001
+From: zd <root@DESKTOP-QH0N003.localdomain>
+Date: Tue, 8 Jul 2025 15:26:34 +0800
+Subject: [PATCH 11/11] BT OK
+
+---
+ .../boot/dts/rockchip/rk3588-evb7-v11.dtsi    | 43 +++++++++++++++++--
+ 1 file changed, 39 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+index ea808ef29e13..d40afa3a7804 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-evb7-v11.dtsi
+@@ -314,7 +314,7 @@ vcc_mipidcphy0: vcc-mipidcphy0-regulator {
+ 	// 	regulator-name = "vcc_3v3_sd_s0";
+ 	// 	enable-active-high;
+ 	// };
+-
++#if 0
+ 	wireless_bluetooth: wireless-bluetooth {
+ 		compatible = "bluetooth-platdata";
+ 		// clocks = <&cru CLK_32K>;
+@@ -334,6 +334,22 @@ wireless_bluetooth: wireless-bluetooth {
+ 		BT,wake_host_irq = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>; // GPIO0_C5_u HOST_WAKE_BT_H
+ 		status = "okay";
+ 	};
++#endif
++	wireless_bluetooth: wireless-bluetooth {
++		compatible = "bluetooth-platdata";
++		//clocks = <&hym8563>;
++		clocks = <&rtc32k>;
++		clock-names = "ext_clock";
++		uart_rts_gpios = <&gpio4 RK_PC4 GPIO_ACTIVE_LOW>;
++		pinctrl-names = "default", "rts_gpio";
++		pinctrl-0 = <&uart9m0_rtsn>, <&bt_reset_gpio>, <&bt_wake_gpio>, <&bt_irq_gpio>;
++		pinctrl-1 = <&uart9_gpios>;
++		BT,reset_gpio    = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
++		BT,wake_gpio     = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
++		BT,wake_host_irq = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
++		status = "okay";
++	};
++
+ 
+ 	wireless_wlan: wireless-wlan {
+ 		compatible = "wlan-platdata";
+@@ -827,7 +843,7 @@ typec5v_pwren: typec5v-pwren {
+ 			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 	};
+-
++#if 0
+ 	wireless-bluetooth {
+ 		uart9_gpios: uart9-gpios {
+ 			rockchip,pins = <
+@@ -850,6 +866,25 @@ bt_host_wake_gpio: bt-host-wake-gpio {
+ 			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>; // GPIO0_C5_u HOST_WAKE_BT_H
+ 		};
+ 	};
++#endif
++	wireless-bluetooth {
++		uart9_gpios: uart9-gpios {
++			rockchip,pins = <4 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		bt_reset_gpio: bt-reset-gpio {
++			rockchip,pins = <0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		bt_wake_gpio: bt-wake-gpio {
++			rockchip,pins = <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		bt_irq_gpio: bt-irq-gpio {
++			rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
+ 
+ 	wireless-wlan {
+ 		wifi_host_wake_irq: wifi-host-wake-irq {
+@@ -938,8 +973,8 @@ imu_rst_h: imu-rst-h {
+ 
+ &uart9 {
+ 	status = "okay";
+-	// pinctrl-names = "default";
+-	// pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn>;
+ };
+ 
+ &uart0 {
+-- 
+2.43.0
+

@@ -33,11 +33,13 @@
 stty -F /dev/ttyS0 115200
 stty -F /dev/ttyS3 115200
 stty -F /dev/ttyS6 115200
+stty -F /dev/ttyUSB0 115200
 
 while true; do
     echo "UART0 test $(date)" > /dev/ttyS0
     echo "UART3 test $(date)" > /dev/ttyS3
     echo "UART6 test $(date)" > /dev/ttyS6
+    echo "UARTUSB0 test $(date)" > /dev/ttyUSB0
     sleep 1
 done
 ```
@@ -61,7 +63,7 @@ chmod +x test_uart.sh
 # filepath: monitor_uart.sh
 
 # 需要监控的串口列表（可根据实际情况增减）
-UART_LIST="/dev/ttyS0 /dev/ttyS3 /dev/ttyS6"
+UART_LIST="/dev/ttyS0 /dev/ttyS3 /dev/ttyS6 /dev/ttyUSB0"
 
 for dev in $UART_LIST; do
   (
