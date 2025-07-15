@@ -65,6 +65,19 @@ chmod +x test_uart.sh
 # 需要监控的串口列表（可根据实际情况增减）
 UART_LIST="/dev/ttyS0 /dev/ttyS3 /dev/ttyS6 /dev/ttyUSB0"
 
+# 先给所有串口设置波特率115200
+echo "正在配置串口波特率..."
+for dev in $UART_LIST; do
+  if [ -e "$dev" ]; then
+    stty -F "$dev" 115200 cs8 -echo
+    echo "已配置 $dev 波特率为115200"
+  else
+    echo "警告: $dev 不存在，跳过配置"
+  fi
+done
+
+echo "开始监控串口数据..."
+
 for dev in $UART_LIST; do
   (
     while true; do

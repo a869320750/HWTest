@@ -65,10 +65,12 @@ if __name__ == "__main__":
         ("GPIO1_B6_U", "high"),
         ("GPIO1_B7_U", "high"),
         ("GPIO3_D2_D", "high"),
-        ("GPIO4_B6_D", "high"),
-        ("GPIO3_D3_D", "high"),
-        ("GPIO1_B3_D", "high"),
-        ("GPIO3_D4_D", "high"),
+        # ("GPIO4_B6_D", "high"),
+        # ("GPIO3_D3_D", "high"),
+        # ("GPIO1_B3_D", "high"),
+        # ("GPIO3_D4_D", "high"),
+        # ("GPIO3_D4_d", "high"),
+        # ("GPIO3_D5_D", "high"),
     ]
 
     print("// GPIO编号对照表")
@@ -94,9 +96,12 @@ if __name__ == "__main__":
     for name, level in gpio_cfgs:
         gpio = gpio_name_to_sysfs_num(name)
         print(f"echo {gpio} > /sys/class/gpio/export")
+        print(f"cat /sys/class/gpio/gpio{gpio}/direction")
+        print(f"cat /sys/class/gpio/gpio{gpio}/value")
         print(f"echo out > /sys/class/gpio/gpio{gpio}/direction")
         if level == "high":
             print(f"echo 1 > /sys/class/gpio/gpio{gpio}/value")
         elif level == "low":
             print(f"echo 0 > /sys/class/gpio/gpio{gpio}/value")
+        print(f"#--------------------------------------")
     print("# 可将以上命令复制到开发板执行")

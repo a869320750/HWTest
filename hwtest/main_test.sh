@@ -16,7 +16,7 @@ TESTS=(
 )
 
 usage() {
-    echo "\n用法: hwtest [all|wifi|bt|eth|usb|audio|gpio|pcie|--help]"
+    printf "\n用法: hwtest [all|wifi|bt|eth|usb|audio|gpio|pcie|uart|storage|monitor|report|--help]\n"
     echo "----------------------------------------"
     echo "  all      : 全部功能一键检测"
     echo "  wifi     : 仅检测WiFi功能"
@@ -24,13 +24,22 @@ usage() {
     echo "  eth      : 仅检测以太网功能"
     echo "  usb      : 仅检测USB功能"
     echo "  audio    : 仅检测音频功能"
-    echo "  gpio     : 仅检测GPIO功能"
+    echo "  gpio     : GPIO调试工具"
     echo "  pcie     : 仅检测PCIe功能"
+    echo "  uart     : UART/串口调试工具"
+    echo "  storage  : 存储设备测试工具"
+    echo "  monitor  : 系统监控工具"
+    echo "  report   : 生成详细硬件报告"
     echo "  --help   : 显示本帮助信息"
-    echo "\n示例:"
-    echo "  hwtest all      # 全部检测"
-    echo "  hwtest wifi     # 只测WiFi"
-    echo "  hwtest          # 显示帮助"
+    printf "\n示例:\n"
+    echo "  hwtest all          # 全部检测"
+    echo "  hwtest wifi         # 只测WiFi"
+    echo "  hwtest gpio         # GPIO工具"
+    echo "  hwtest uart         # UART工具"
+    echo "  hwtest storage      # 存储工具"
+    echo "  hwtest monitor      # 系统监控"
+    echo "  hwtest report       # 生成报告"
+    echo "  hwtest              # 显示帮助"
     exit 0
 }
 
@@ -45,10 +54,10 @@ mkdir -p "$LOG_DIR"
 run_test() {
     local test_name="$1"
     local test_desc="$2"
-    echo "\n测试 $test_desc..."
+    printf "\n测试 $test_desc..."
     echo "----------------------------------------"
     if [ -f "$HW_TEST_DIR/${test_name}_test.sh" ]; then
-        if timeout 30 "$HW_TEST_DIR/${test_name}_test.sh" > "$LOG_DIR/${test_name}_test.log" 2>&1; then
+        if timeout 30 "$HW_TEST_DIR/${test_name}_test.sh" 2>&1 | tee "$LOG_DIR/${test_name}_test.log"; then
             if grep -q "测试成功\|功能正常\|OK" "$LOG_DIR/${test_name}_test.log"; then
                 echo "✅ $test_desc: 通过"
                 return 0
@@ -85,22 +94,39 @@ if [[ $1 == "all" ]]; then
             ((FAILED++))
         fi
     done
-    echo "\n========================================"
-    echo "测试总结"
+    printf "\n========================================"
+    printf "\n测试总结"
     echo "========================================"
     echo "总计: $TOTAL 项"
     echo "通过: $PASSED 项"
     echo "失败: $FAILED 项"
     echo "成功率: $(( PASSED * 100 / TOTAL ))%"
-    echo "\n详细报告:"
+    printf "\n详细报告:"
     echo "----------------------------------------"
     cat "$REPORT_FILE"
-    echo "\n详细日志保存在: $LOG_DIR/"
+    printf "\n详细日志保存在: $LOG_DIR/"
     echo "完整报告保存在: $REPORT_FILE"
     [ $FAILED -eq 0 ]
     exit $?
 else
     # 单项测试
+    if [[ $1 == "uart" ]]; then
+        # UART工具子菜单
+        exec "$HW_TEST_DIR/uart/uart_menu.sh" "${@:2}"
+    elif [[ $1 == "gpio" ]]; then
+        # GPIO工具子菜单
+        exec "$HW_TEST_DIR/gpio/gpio_menu.sh" "${@:2}"
+    elif [[ $1 == "storage" ]]; then
+        # 存储工具子菜单
+        exec "$HW_TEST_DIR/storage/storage_menu.sh" "${@:2}"
+    elif [[ $1 == "monitor" ]]; then
+        # 监控工具子菜单
+        exec "$HW_TEST_DIR/monitor/monitor_menu.sh" "${@:2}"
+    elif [[ $1 == "report" ]]; then
+        # 生成详细硬件报告
+        exec "$HW_TEST_DIR/tools/hardware_report.sh" "${@:2}"
+    fi
+    
     for test_item in "${TESTS[@]}"; do
         IFS=':' read -r test_name test_desc <<< "$test_item"
         if [[ $1 == "$test_name" ]]; then

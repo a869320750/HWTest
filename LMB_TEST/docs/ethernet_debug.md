@@ -116,16 +116,161 @@ ifconfig
 ifconfig wlan0 down
 ifconfig lo down
 
-echo 124 > /sys/class/gpio/export
-cat /sys/class/gpio/gpio124/value
-cat /sys/class/gpio/gpio124/direction
-echo out > /sys/class/gpio/gpio124/direction
-echo 0 > /sys/class/gpio/gpio124/value
-sleep 3
-echo 1 > /sys/class/gpio/gpio124/value
+# echo 124 > /sys/class/gpio/export
+# cat /sys/class/gpio/gpio124/value
+# cat /sys/class/gpio/gpio124/direction
+# echo out > /sys/class/gpio/gpio124/direction
+# echo 0 > /sys/class/gpio/gpio124/value
+# sleep 3
+# echo 1 > /sys/class/gpio/gpio124/value
+ifconfig eth0
 
 ifconfig eth0 192.168.253.100 up
 ifconfig
+cat /sys/class/net/eth0/operstate
 
 ping 192.168.253.253
+
+
+
+echo 0x12 0x0 > /sys/bus/mdio_bus/devices/stmmac-1:01/phy_registers    # 强制MDI
+cat /sys/bus/mdio_bus/devices/stmmac-1:01/phy_registers
+echo 0x12 0x4000 > /sys/bus/mdio_bus/devices/stmmac-1:01/phy_registers # 强制MDIx
+cat /sys/bus/mdio_bus/devices/stmmac-1:01/phy_registers
+
+
+cat /sys/bus/mdio_bus/devices/stmmac-1:01/phy_registers
 ```
+
+
+# 以太网接口异常问题技术分析
+
+## 1. 接口规范要求
+```mermaid
+graph LR
+    A[IEEE 802.3标准] --> B[必须电气隔离]
+    B --> C[变压器方案]
+    B --> D[电容方案]
+    C --> E[完整隔离]
+    D --> F[部分隔离]
+```
+## 2. 必须加隔离器件的原因
+### 2.1 不加隔离的问题
+```mermaid
+graph TD
+    G[无隔离器件] --> H[直流偏置冲突]
+    G --> I[地环路干扰]
+    H --> J[PHY芯片工作点偏移]
+    I --> K[共模噪声]
+    J --> L[信号畸变]
+    K --> L
+    L --> M[Ping不通]
+```
+- 具体表现：
+    - 当两端PHY芯片直流偏置不同（如3.3V vs 1.8V）时，直接连接会导致：
+    - 电流倒灌
+    - 信号电平被拉偏
+    - 芯片可能损坏
+## 3. 线序反接能通的现象解析
+```mermaid
+graph LR
+    N[线序反接] --> O[差分极性反转]
+    O --> P[直流工作点改变]
+    P --> Q[意外形成电平匹配]
+    Q --> R[暂时能通]
+    
+    style R stroke:#f00,stroke-width:2px
+```
+- 深层原理：
+
+1. PHY芯片内部差分对的直流特性不对称
+
+2. 反接可能意外满足：
+		
+	- 直流偏置电压兼容
+		
+	- 共模电压范围要求
+
+3. 但这种连接：
+
+	- 不稳定（受温度/器件批次影响）
+
+  	- 不符合规范
+
+	- 抗干扰能力差
+
+
+# 以太网PHY直连异常分析（含图示）
+
+## 1. 正常接法故障原理
+```mermaid
+graph LR
+    subgraph PHY芯片
+    A[3.3V偏置] -->|TX+| B
+    A -->|TX-| C
+    end
+
+    subgraph 自组网模块
+    D[1.8V偏置] -->|RX+| E
+    D -->|RX-| F
+    end
+
+    B --直连--> E
+    C --直连--> F
+
+    style A fill:#f9d71c,stroke:#333
+    style D fill:#a6d8ff,stroke:#333
+```
+
+- 问题分析：
+
+  - 直流冲突：3.3V与1.8V系统直接对接形成电流倒灌路径
+
+  - 电平畸变：
+
+```text
+PHY侧期望电平：2.8V~3.8V (3.3V±0.5V)
+模块侧实际获得：≈2.5V±0.5V（被1.8V系统拉偏）
+```
+  - 结果：信号幅度不足导致误码
+
+## 2.反接能通的偶然性
+
+```mermaid
+graph LR
+    subgraph PHY芯片
+    A[3.3V偏置] -->|TX+| B
+    A -->|TX-| C
+    end
+
+    subgraph 自组网模块
+    D[1.8V偏置] -->|RX+| F
+    D -->|RX-| E
+    end
+
+    B --反接--> F
+    C --反接--> E
+
+    style A fill:#f9d71c,stroke:#333
+    style D fill:#a6d8ff,stroke:#333
+```
+
+- 意外导通原因：
+
+1. 差分对不对称性：
+
+	- PHY的TX+/-驱动能力存在微小差异
+
+	- 模块的RX+/-输入阻抗不完全对称
+
+2. 直流偏置巧合：
+
+```text
+反接后等效电路：
+PHY_TX+ → 模块_RX-（通过1.8V负载）
+PHY_TX- → 模块_RX+（通过1.8V负载）
+形成新的直流平衡点≈2.2V
+```
+3. 信号幅度：
+
+	- 实际获得：2.2V±0.5V（刚好满足模块识别阈值）

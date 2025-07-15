@@ -464,7 +464,7 @@
 
 &gmac1 {
 	/* Use rgmii-rxid mode to disable rx delay inside Soc */
-	//phy-mode = "rgmii-rxid";
+	// phy-mode = "rgmii-rxid";
 	phy-mode = "rgmii";
 	clock_in_out = "output";
 
@@ -482,8 +482,8 @@
 		     &gmac1_rgmii_bus
 			 &gmac1_clkinout>;
 
-	tx_delay = <0x3a>;
-	rx_delay = <0x2a>;
+	tx_delay = <0x63>;
+	rx_delay = <0x63>;
 
 	phy-handle = <&rgmii_phy1>;
 	status = "okay";
